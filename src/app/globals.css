@@ -4409,3 +4409,214 @@ button {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+/* Nút Tạo phòng trên TopBar */
+.topbar-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  margin-right: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 232, 127, 0.35);
+  background: rgba(214, 232, 127, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.topbar-create-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+  transform: translateY(-1px);
+}
+
+/* Tabs Tạo phòng / Vào bằng mã phòng */
+.onboard__tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px 0;
+}
+
+.onboard__tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  transition: all 0.15s var(--ease);
+}
+
+.onboard__tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.onboard__tab--active {
+  background: rgba(214, 232, 127, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 16px rgba(214, 232, 127, 0.08);
+}
+
+/* Form Vào phòng bằng mã phòng */
+.onboard__join-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.onboard__join-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.onboard__join-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.onboard__join-input {
+  flex: 1;
+  padding-left: 42px !important;
+  height: 46px;
+  font-size: 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.onboard__join-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(214, 232, 127, 0.2);
+  outline: none;
+}
+
+.onboard__join-btn {
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.onboard__recent-group {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboard__recent-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.onboard__recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.onboard__recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  width: 100%;
+}
+
+.onboard__recent-item:hover {
+  background: rgba(214, 232, 127, 0.08);
+  border-color: rgba(214, 232, 127, 0.3);
+  transform: translateY(-1px);
+}
+
+.onboard__recent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.onboard__recent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboard__recent-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboard__recent-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.onboard__recent-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: all 0.15s var(--ease);
+}
+
+.onboard__recent-item:hover .onboard__recent-action {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
