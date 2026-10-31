@@ -22,18 +22,11 @@ import {
 import { generateRoomCode, saveRoomSetup, type RoomSetup } from "@/lib/room-setup";
 import { parseYouTubeId, youTubeThumbnail } from "@/lib/youtube";
 import { useT, type MessageKey } from "@/lib/i18n";
+import { useAuthStore } from "@/lib/auth-store";
 import { BrandMark } from "@/components/hud/RoomTopBar";
 
 type DialogMode = "create" | "join";
 type Step = "name" | "video" | "share";
-
-const STEP_ORDER: Step[] = ["name", "video", "share"];
-
-const STEP_INDICATOR: Record<Step, MessageKey> = {
-  name: "onboard.stepName",
-  video: "onboard.stepVideo",
-  share: "onboard.stepShare",
-};
 
 interface SuggestedVideo {
   videoId: string;
@@ -114,8 +107,8 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const joinInputRef = useRef<HTMLInputElement>(null);
 
   const headingId = useId();
-  const stepsId = useId();
   const t = useT();
+  const { user } = useAuthStore();
 
   // Mode: "create" (Tạo phòng mới) hoặc "join" (Vào phòng bằng mã)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create");
@@ -128,7 +121,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   // Create form state
   const [step, setStep] = useState<Step>("name");
   const [roomTitle, setRoomTitle] = useState("");
-  const [hostName, setHostName] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -208,7 +200,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     const setup: RoomSetup = {
       code: generateRoomCode(),
       title: roomTitle.trim(),
-      hostName: hostName.trim() || t("common.you"),
+      hostName: user?.displayName || user?.username || t("common.you"),
       videoId: resolvedVideo.videoId,
       videoTitle: resolvedVideo.title,
       channelTitle: resolvedVideo.channelTitle,
@@ -305,7 +297,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     if (errors.length > 0) summaryRef.current?.focus();
   }, [errors]);
 
-  const stepIndex = STEP_ORDER.indexOf(step);
   const primaryLabel =
     step === "name"
       ? t("common.next")
@@ -386,25 +377,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
               goNext();
             }}
           >
-            <ol className="onboard__steps" id={stepsId}>
-              {STEP_ORDER.map((item, index) => {
-                const state = index < stepIndex ? "done" : index === stepIndex ? "current" : "todo";
-                return (
-                  <li
-                    key={item}
-                    className="onboard__step"
-                    data-state={state}
-                    aria-current={state === "current" ? "step" : undefined}
-                  >
-                    <span className="onboard__step-dot" aria-hidden="true">
-                      {state === "done" ? <Check size={11} strokeWidth={3} /> : index + 1}
-                    </span>
-                    <span className="onboard__step-label">{t(STEP_INDICATOR[item])}</span>
-                  </li>
-                );
-              })}
-            </ol>
-
             <div className="onboard__body">
               {errors.length > 0 ? (
                 <div className="onboard__error" role="alert" tabIndex={-1} ref={summaryRef}>
@@ -432,7 +404,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
               {step === "name" ? (
                 <>
-                  <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 1 })}</span>
                   <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
                     {t("onboard.nameTitle")}
                   </h2>
@@ -471,30 +442,11 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                       })}
                     </p>
                   </div>
-
-                  <div className="field">
-                    <label className="field__label" htmlFor="room-host">
-                      {t("onboard.hostLabel")}{" "}
-                      <span className="field__optional">{t("onboard.optional")}</span>
-                    </label>
-                    <input
-                      id="room-host"
-                      className="input"
-                      type="text"
-                      value={hostName}
-                      maxLength={16}
-                      placeholder={t("onboard.hostPlaceholder")}
-                      autoComplete="nickname"
-                      onChange={(event) => setHostName(event.target.value)}
-                    />
-                    <p className="hint">{t("onboard.hostHint")}</p>
-                  </div>
                 </>
               ) : null}
 
               {step === "video" ? (
                 <>
-                  <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 2 })}</span>
                   <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
                     {t("onboard.videoTitle")}
                   </h2>
@@ -583,7 +535,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
               {step === "share" && created ? (
                 <>
-                  <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 3 })}</span>
                   <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
                     {t("onboard.shareTitle")}
                   </h2>
