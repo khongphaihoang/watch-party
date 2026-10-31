@@ -3892,3 +3892,520 @@ button {
   background: rgba(224, 140, 124, 0.15);
   color: var(--danger);
 }
+
+/* ================================================== chọn ngôn ngữ (topbar) */
+.lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 186px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: var(--radius);
+}
+
+.lang-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms ease-out,
+    color 140ms ease-out,
+    border-color 140ms ease-out;
+}
+
+.lang-menu__item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.lang-menu__item.is-selected {
+  background: rgba(214, 232, 127, 0.1);
+  border-color: var(--line-accent);
+  color: var(--text);
+}
+
+.lang-menu__label {
+  flex: 1 1 auto;
+}
+
+.lang-menu__check {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .lang-menu {
+    min-width: 170px;
+  }
+
+  .lang-menu__item {
+    min-height: 44px;
+  }
+}
+
+
+/* ==================================================== Tiếp Lửa Rạp Chiếu (Boost / Support) */
+.sheet--boost {
+  width: min(680px, calc(100vw - 32px)) !important;
+  max-width: none !important;
+}
+
+.boost-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* CỘT TRÁI: CHIẾC VÉ QR ĐIỆN ẢNH */
+.boost-ticket {
+  position: relative;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    170deg,
+    rgba(32, 44, 34, 0.96) 0%,
+    rgba(14, 20, 16, 0.98) 100%
+  );
+  border: 1px solid rgba(231, 200, 120, 0.28);
+  box-shadow:
+    0 16px 36px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(231, 200, 120, 0.25);
+  overflow: hidden;
+}
+
+.boost-ticket__inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.boost-ticket__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--line);
+}
+
+.boost-ticket__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.boost-ticket__badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ff5252;
+}
+
+.boost-ticket__sub {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.boost-ticket__dots {
+  display: flex;
+  gap: 4px;
+}
+
+.boost-ticket__dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(231, 200, 120, 0.35);
+}
+
+/* Khung QR */
+.boost-ticket__qr-box {
+  position: relative;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.boost-ticket__corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--gold);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.boost-ticket__corner--tl {
+  top: 10px;
+  left: 10px;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 4px;
+}
+
+.boost-ticket__corner--tr {
+  top: 10px;
+  right: 10px;
+  border-width: 2px 2px 0 0;
+  border-top-right-radius: 4px;
+}
+
+.boost-ticket__corner--bl {
+  bottom: 34px;
+  left: 10px;
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 4px;
+}
+
+.boost-ticket__corner--br {
+  bottom: 34px;
+  right: 10px;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 4px;
+}
+
+.boost-ticket__qr-img-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.boost-ticket__qr-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+}
+
+.boost-ticket__scan-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+/* Vết cắt vé phim (Perforation) */
+.boost-ticket__perforation {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 20px;
+  margin: 0;
+}
+
+.boost-ticket__notch {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+}
+
+.boost-ticket__notch--left {
+  left: -8px;
+}
+
+.boost-ticket__notch--right {
+  right: -8px;
+}
+
+.boost-ticket__dash-line {
+  flex: 1;
+  height: 1px;
+  border-top: 1.5px dashed rgba(231, 200, 120, 0.35);
+  margin: 0 12px;
+}
+
+/* Khối số tiền vé */
+.boost-ticket__amount-box {
+  padding: 10px 14px 14px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.boost-ticket__amount-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.boost-ticket__amount-val {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(214, 232, 127, 0.35);
+}
+
+/* CỘT PHẢI: BẢNG CHI TIẾT THÔNG TIN */
+.boost-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Preset chips */
+.boost-presets-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.boost-presets-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.boost-presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.boost-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+  text-align: left;
+}
+
+.boost-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--line-accent);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.boost-preset-btn--active {
+  background: rgba(214, 232, 127, 0.12) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  box-shadow: 0 0 12px rgba(214, 232, 127, 0.2);
+}
+
+.boost-preset-btn__label {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.boost-preset-btn__desc {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.boost-preset-btn--active .boost-preset-btn__desc {
+  color: var(--accent-strong);
+}
+
+/* Thẻ thông tin thụ hưởng */
+.boost-info-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.boost-info-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s var(--ease);
+}
+
+.boost-info-card--interactive:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.boost-info-card--highlight {
+  background: linear-gradient(90deg, rgba(231, 200, 120, 0.08) 0%, rgba(0, 0, 0, 0.3) 100%);
+  border-color: rgba(231, 200, 120, 0.35);
+}
+
+.boost-info-card__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.boost-info-card__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.boost-info-card__label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.boost-info-card__val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boost-info-card__val--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.boost-info-card__val--highlight {
+  color: var(--gold);
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+}
+
+.boost-info-card__sub {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* Nút sao chép */
+.boost-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-accent);
+  background: rgba(214, 232, 127, 0.1);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease);
+}
+
+.boost-copy-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+  transform: scale(1.03);
+}
+
+.boost-copy-btn--copied {
+  background: rgba(143, 208, 138, 0.2) !important;
+  border-color: var(--ok) !important;
+  color: var(--ok) !important;
+}
+
+/* Ghi chú an toàn */
+.boost-safety-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(143, 208, 138, 0.06);
+  border: 1px solid rgba(143, 208, 138, 0.2);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.boost-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* Responsive trên màn hình điện thoại */
+@media (max-width: 640px) {
+  .sheet--boost {
+    width: 100% !important;
+  }
+
+  .boost-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .boost-ticket {
+    max-width: 320px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .boost-presets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

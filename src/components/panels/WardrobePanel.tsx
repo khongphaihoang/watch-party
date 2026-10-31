@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Shirt } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import { PanelShell } from "./PanelShell";
 
 const SHIRT_COLORS = [
@@ -24,25 +25,26 @@ export function WardrobePanel({
   currentName: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(currentName);
   const [color, setColor] = useState(currentColor);
   const [style, setStyle] = useState<"male" | "female">("male");
 
   return (
     <PanelShell
-      title="Tủ đồ · Avatar"
-      subtitle="Đổi tên in trên áo và màu áo của bạn"
+      title={t("wardrobe.title")}
+      subtitle={t("wardrobe.subtitle")}
       onClose={onClose}
       footer={
         <button type="button" className="btn btn-primary btn-block" disabled>
           <Check size={15} aria-hidden="true" />
-          Lưu thay đổi (Phase 2)
+          {t("wardrobe.save")}
         </button>
       }
     >
       <div className="field">
         <label className="field__label" htmlFor="wardrobe-name">
-          Tên in trên áo
+          {t("wardrobe.nameLabel")}
         </label>
         <input
           id="wardrobe-name"
@@ -51,11 +53,11 @@ export function WardrobePanel({
           maxLength={16}
           onChange={(event) => setName(event.target.value)}
         />
-        <p className="hint">Tối đa 16 ký tự, hiển thị trên tên nhân vật và trong chat.</p>
+        <p className="hint">{t("wardrobe.nameHint")}</p>
       </div>
 
       <div className="field">
-        <span className="field__label">Ngoại hình</span>
+        <span className="field__label">{t("wardrobe.appearance")}</span>
         <div style={{ display: "flex", gap: 8 }}>
           {(["male", "female"] as const).map((option) => (
             <button
@@ -66,14 +68,14 @@ export function WardrobePanel({
               onClick={() => setStyle(option)}
               aria-pressed={style === option}
             >
-              {option === "male" ? "Nam" : "Nữ"}
+              {option === "male" ? t("wardrobe.male") : t("wardrobe.female")}
             </button>
           ))}
         </div>
       </div>
 
       <div className="field">
-        <span className="field__label">Màu áo</span>
+        <span className="field__label">{t("wardrobe.shirtColor")}</span>
         <div className="swatches">
           {SHIRT_COLORS.map((value) => (
             <button
@@ -81,7 +83,7 @@ export function WardrobePanel({
               type="button"
               className={`swatch ${color === value ? "is-active" : ""}`}
               style={{ background: value }}
-              aria-label={`Màu áo ${value}`}
+              aria-label={t("wardrobe.swatchLabel", { color: value })}
               aria-pressed={color === value}
               onClick={() => setColor(value)}
             />
@@ -94,9 +96,13 @@ export function WardrobePanel({
           <Shirt size={18} aria-hidden="true" />
         </span>
         <span className="row-item__main">
-          <span className="row-item__title">Xem trước</span>
+          <span className="row-item__title">{t("wardrobe.preview")}</span>
           <span className="row-item__meta">
-            Áo {color} · {style === "male" ? "Nam" : "Nữ"} · tên &ldquo;{name || "—"}&rdquo;
+            {t("wardrobe.previewMeta", {
+              color,
+              style: style === "male" ? t("wardrobe.male") : t("wardrobe.female"),
+              name: name || "—",
+            })}
           </span>
         </span>
       </div>

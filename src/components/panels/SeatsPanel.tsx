@@ -1,6 +1,7 @@
 "use client";
 
 import { Armchair } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import type { Member } from "@/lib/room-types";
 import { GRID, seatId, type SeatCell } from "@/lib/theater-layout";
 import { PanelShell } from "./PanelShell";
@@ -8,32 +9,39 @@ import { PanelShell } from "./PanelShell";
 export function SeatsPanel({
   seats,
   members,
+  viewerId,
   onTakeSeat,
   onClose,
 }: {
   seats: SeatCell[];
   members: Member[];
+  viewerId?: string;
   onTakeSeat: (row: number, col: number) => void;
   onClose: () => void;
 }) {
-  const mine = members.find((member) => member.displayName === "Bạn");
+  const t = useT();
+  const mine = members.find((member) => member.id === viewerId);
 
   return (
     <PanelShell
-      title="Chọn ghế"
-      subtitle={mine?.seatId ? `Bạn đang ở ${describeSeat(mine.seatId)}` : "Bạn chưa chọn ghế"}
+      title={t("dock.seats")}
+      subtitle={
+        mine?.seatId
+          ? t("seats.subtitleAt", { seat: describeSeat(mine.seatId, t) })
+          : t("seats.subtitleNone")
+      }
       onClose={onClose}
       footer={
         <p className="hint" style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Armchair size={13} aria-hidden="true" />
-          Bấm vào ghế trong sơ đồ hoặc bấm trực tiếp vào ghế trong rạp 3D.
+          {t("seats.hint")}
         </p>
       }
     >
       <div className="seat-map">
         <div className="seat-map__screen" aria-hidden="true" />
         <span className="eyebrow" style={{ marginBottom: 4 }}>
-          Màn chiếu
+          {t("seats.screen")}
         </span>
         {/* Bỏ hàng ghế cuối cùng, chỉ hiển thị 5 hàng ghế tương ứng với rạp 3D */}
         {Array.from({ length: GRID.rows - 1 }).map((_, row) => (
@@ -42,6 +50,12 @@ export function SeatsPanel({
               const id = seatId(row, col);
               const seat = seats.find((cell) => cell.id === id);
               const status = seat?.status ?? "empty";
+              const state =
+                status === "empty"
+                  ? t("seats.stateEmpty")
+                  : status === "mine"
+                    ? t("seats.stateMine")
+                    : t("seats.stateTaken");
               return (
                 <button
                   key={id}
@@ -55,10 +69,8 @@ export function SeatsPanel({
                           ? "is-blocked"
                           : ""
                   }`}
-                  title={`Hàng ${row + 1} số ${col + 1}`}
-                  aria-label={`Hàng ${row + 1} số ${col + 1} — ${
-                    status === "empty" ? "trống" : status === "mine" ? "của bạn" : "đã có người"
-                  }`}
+                  title={t("seats.seatTitle", { row: row + 1, col: col + 1 })}
+                  aria-label={`${t("seats.seatTitle", { row: row + 1, col: col + 1 })} — ${state}`}
                   onClick={() => onTakeSeat(row, col)}
                 />
               );
@@ -68,11 +80,11 @@ export function SeatsPanel({
       </div>
 
       <div className="field" style={{ marginTop: 8 }}>
-        <span className="field__label">Chú thích</span>
+        <span className="field__label">{t("seats.legend")}</span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 11.5 }}>
-          <Legend className="" label="Còn trống" />
-          <Legend className="is-occupied" label="Đã có người" />
-          <Legend className="is-mine" label="Của bạn" />
+          <Legend className="" label={t("seats.legendEmpty")} />
+          <Legend className="is-occupied" label={t("seats.legendTaken")} />
+          <Legend className="is-mine" label={t("seats.legendMine")} />
         </div>
       </div>
     </PanelShell>
@@ -92,8 +104,8 @@ function Legend({ className, label }: { className: string; label: string }) {
   );
 }
 
-function describeSeat(seatId: string): string {
-  const match = seatId.match(/r(\d+)c(\d+)/);
-  if (!match) return seatId;
-  return `hàng ${Number(match[1]) + 1}, số ${Number(match[2]) + 1}`;
+function describeSeat(seatIdValue: string, t: ReturnType<typeof useT>): string {
+  const match = seatIdValue.match(/r(\d+)c(\d+)/);
+  if (!match) return seatIdValue;
+  return t("seats.position", { row: Number(match[1]) + 1, col: Number(match[2]) + 1 });
 }

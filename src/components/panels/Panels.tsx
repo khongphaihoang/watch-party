@@ -3,8 +3,6 @@
 import {
   BadgeCheck,
   Crop,
-  Gamepad2,
-  Gift,
   ImagePlus,
   Info,
   ListChecks,
@@ -12,14 +10,21 @@ import {
   Users,
 } from "lucide-react";
 import { formatCount, initials } from "@/lib/format";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { PlaybackState, RoomState, UiStatus } from "@/lib/room-types";
 import { PanelShell } from "./PanelShell";
 
+export { BoostPanel } from "./BoostPanel";
+
 export function MembersPanel({ room, onClose }: { room: RoomState; onClose: () => void }) {
+  const t = useT();
   return (
     <PanelShell
-      title="Trong rạp"
-      subtitle={`${room.members.length} / ${room.capacity} ghế đã có người`}
+      title={t("members.title")}
+      subtitle={t("members.subtitle", {
+        count: room.members.length,
+        capacity: room.capacity,
+      })}
       onClose={onClose}
     >
       <ul className="list">
@@ -35,12 +40,12 @@ export function MembersPanel({ room, onClose }: { room: RoomState; onClose: () =
             <span className="row-item__main">
               <span className="row-item__title">{member.displayName}</span>
               <span className="row-item__meta">
-                {member.seatId ? describeSeat(member.seatId) : "chưa chọn ghế"}
+                {member.seatId ? describeSeat(member.seatId, t) : t("members.noSeat")}
               </span>
             </span>
             {member.isHost ? (
               <span className="chip chip--warn">
-                <BadgeCheck size={11} aria-hidden="true" /> Chủ rạp
+                <BadgeCheck size={11} aria-hidden="true" /> {t("members.host")}
               </span>
             ) : null}
           </li>
@@ -59,116 +64,78 @@ export function InfoPanel({
   onCopyLink: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   return (
     <PanelShell
-      title="Thông tin phòng"
-      subtitle="Rạp Nhà · bản demo Phase 1"
+      title={t("topbar.info")}
+      subtitle={t("info.subtitle")}
       onClose={onClose}
       footer={
         <button type="button" className="btn btn-primary btn-block" onClick={onCopyLink}>
-          Sao chép link phòng
+          {t("topbar.copyLink")}
         </button>
       }
     >
       <ul className="list">
-        <InfoRow label="Tên phòng" value={room.title} />
-        <InfoRow label="Mã phòng" value={room.code} />
-        <InfoRow label="Đang chiếu" value={room.nowPlaying?.title ?? "Chưa có suất chiếu"} />
-        <InfoRow label="Sức chứa" value={`${room.capacity} ghế`} />
-        <InfoRow label="Đang có" value={`${room.members.length} người`} />
-        <InfoRow label="Trạng thái" value={room.lifecycle === "live" ? "Đang chiếu" : "Đang chờ"} />
-        <InfoRow label="Điểm của bạn" value={formatCount(room.walletPoints)} />
+        <InfoRow label={t("info.roomName")} value={room.title} />
+        <InfoRow label={t("info.roomCode")} value={room.code} />
+        <InfoRow label={t("info.nowShowing")} value={room.nowPlaying?.title ?? t("nowPlaying.empty")} />
+        <InfoRow label={t("info.capacity")} value={t("info.countSeats", { count: room.capacity })} />
+        <InfoRow
+          label={t("info.present")}
+          value={t("info.countPeople", { count: room.members.length })}
+        />
+        <InfoRow
+          label={t("info.status")}
+          value={room.lifecycle === "live" ? t("common.playing") : t("common.waiting")}
+        />
+        <InfoRow label={t("info.points")} value={formatCount(room.walletPoints)} />
       </ul>
       <div className="row-item">
         <span style={{ color: "var(--text-faint)" }}>
           <Info size={18} aria-hidden="true" />
         </span>
         <span className="row-item__main">
-          <span className="row-item__title">Giai đoạn hiện tại</span>
-          <span className="row-item__meta">
-            Phase 1 — Cinema UI với dữ liệu giả lập. Chưa có backend, chưa lưu dữ liệu thật.
-          </span>
+          <span className="row-item__title">{t("info.phase")}</span>
+          <span className="row-item__meta">{t("info.phaseDesc")}</span>
         </span>
       </div>
     </PanelShell>
   );
 }
 
-export function GamePanel({ onClose }: { onClose: () => void }) {
-  return (
-    <PanelShell
-      title="Chơi game"
-      subtitle="Chưa khả dụng trong Phase 1"
-      onClose={onClose}
-    >
-      <Placeholder
-        icon={<Gamepad2 size={26} aria-hidden="true" />}
-        title="Mini-game trong rạp"
-        body="Ghế đã sẵn sàng cho phần chơi chung: đoán phim, bắn chữ, co-op 2–4 người trên màn chiếu. Hạ tầng signaling sẽ đi qua kênh realtime ở Phase 4."
-        items={[
-          "Trạng thái nút: placeholder có chủ đích",
-          "Không tạo nút trang trí không hành vi",
-          "Sẽ mở khoá cùng Phase 4 — Realtime Interaction",
-        ]}
-      />
-    </PanelShell>
-  );
-}
-
 export function PhotosPanel({ onClose }: { onClose: () => void }) {
+  const t = useT();
   return (
     <PanelShell
-      title="Chia sẻ hình ảnh"
-      subtitle="Chưa khả dụng trong Phase 1"
+      title={t("photos.title")}
+      subtitle={t("panels.unavailable")}
       onClose={onClose}
     >
       <Placeholder
         icon={<ImagePlus size={26} aria-hidden="true" />}
-        title="Gửi ảnh lên màn chiếu"
-        body="Ảnh JPG, PNG, WebP hoặc GIF tối đa 12MB sẽ được duyệt trước khi chiếu lên màn hình lớn cho cả rạp."
-        items={[
-          "Cần endpoint upload + kiểm duyệt",
-          "Ảnh hiển thị tạm trên lớp màn chiếu, không che màn hình đang phát",
-        ]}
-      />
-    </PanelShell>
-  );
-}
-
-export function BoostPanel({ onClose }: { onClose: () => void }) {
-  return (
-    <PanelShell
-      title="Ủng hộ chủ rạp"
-      subtitle="Chưa khả dụng trong Phase 1"
-      onClose={onClose}
-    >
-      <Placeholder
-        icon={<Gift size={26} aria-hidden="true" />}
-        title="Quà và ủng hộ"
-        body="Bạn có thể gửi một phần quà nhỏ để cảm ơn chủ rạp. Số dư hiện tại là điểm demo, chưa gắn với giao dịch thật."
-        items={[
-          "Cần ví, lịch sử giao dịch và luồng duyệt",
-          "Không xử lý thanh toán trong bản demo này",
-        ]}
+        title={t("photos.heading")}
+        body={t("photos.body")}
+        items={[t("photos.item1"), t("photos.item2")]}
       />
     </PanelShell>
   );
 }
 
 const DEMO_STATES: Array<{
-  label: string;
+  labelKey: MessageKey;
   ui?: UiStatus;
   playback?: PlaybackState;
 }> = [
-  { label: "1 · Đang tải phòng", ui: "loading" },
-  { label: "2 · Phòng chưa có video", ui: "ready", playback: "idle" },
-  { label: "3 · Đang phát video", ui: "ready", playback: "playing" },
-  { label: "4 · Tạm dừng", ui: "ready", playback: "paused" },
-  { label: "5 · Đang đồng bộ video", ui: "ready", playback: "buffering" },
-  { label: "7 · Phòng đã đầy", ui: "full" },
-  { label: "9 · Mất kết nối realtime", ui: "reconnecting" },
-  { label: "10 · Không thể phát video", ui: "ready", playback: "error" },
-  { label: "11 · Phòng đã kết thúc", ui: "ended" },
+  { labelKey: "demo.1", ui: "loading" },
+  { labelKey: "demo.2", ui: "ready", playback: "idle" },
+  { labelKey: "demo.3", ui: "ready", playback: "playing" },
+  { labelKey: "demo.4", ui: "ready", playback: "paused" },
+  { labelKey: "demo.5", ui: "ready", playback: "buffering" },
+  { labelKey: "demo.7", ui: "full" },
+  { labelKey: "demo.9", ui: "reconnecting" },
+  { labelKey: "demo.10", ui: "ready", playback: "error" },
+  { labelKey: "demo.11", ui: "ended" },
 ];
 
 export function SettingsPanel({
@@ -188,18 +155,16 @@ export function SettingsPanel({
   onDemoJoin: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   return (
     <PanelShell
-      title="Cài đặt phòng"
-      subtitle="Bản demo — dùng để kiểm thử các trạng thái giao diện"
+      title={t("topbar.settings")}
+      subtitle={t("settings.subtitle")}
       onClose={onClose}
     >
       <div className="field">
-        <span className="field__label">Trạng thái giao diện</span>
-        <p className="hint">
-          Yêu cầu Phase 1 cần đủ 11 trạng thái. Sáu trạng thái dữ liệu đổi ngay khi bấm;
-          trạng thái 6 (đang chọn ghế) và 8 (vừa tham gia) nằm ở nút bên dưới.
-        </p>
+        <span className="field__label">{t("settings.stateLabel")}</span>
+        <p className="hint">{t("settings.stateHint")}</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {DEMO_STATES.map((state) => {
             const isActive =
@@ -207,7 +172,7 @@ export function SettingsPanel({
               (!state.playback || room.nowPlaying?.state === state.playback);
             return (
               <button
-                key={state.label}
+                key={state.labelKey}
                 type="button"
                 className={`btn ${isActive ? "btn-primary" : "btn-secondary"}`}
                 style={{ justifyContent: "flex-start" }}
@@ -217,7 +182,7 @@ export function SettingsPanel({
                 }}
               >
                 <ListChecks size={15} aria-hidden="true" />
-                {state.label}
+                {t(state.labelKey)}
               </button>
             );
           })}
@@ -231,7 +196,7 @@ export function SettingsPanel({
             }}
           >
             <Info size={15} aria-hidden="true" />
-            Về trạng thái bình thường
+            {t("settings.reset")}
           </button>
           <button
             type="button"
@@ -240,7 +205,7 @@ export function SettingsPanel({
             onClick={onDemoJoin}
           >
             <Users size={15} aria-hidden="true" />
-            8 · Mô phỏng vừa tham gia rạp
+            {t("settings.demoJoin")}
           </button>
         </div>
       </div>
@@ -250,10 +215,8 @@ export function SettingsPanel({
           <Crop size={18} aria-hidden="true" />
         </span>
         <span className="row-item__main">
-          <span className="row-item__title">Trạng thái 6 · Đang chọn ghế</span>
-          <span className="row-item__meta">
-            Mở bảng &ldquo;Chọn ghế&rdquo; ở thanh công cụ bên trái hoặc nút ghế ở thanh dưới.
-          </span>
+          <span className="row-item__title">{t("settings.state6")}</span>
+          <span className="row-item__meta">{t("settings.state6Desc")}</span>
         </span>
       </div>
 
@@ -262,11 +225,8 @@ export function SettingsPanel({
           <Mic size={18} aria-hidden="true" />
         </span>
         <span className="row-item__main">
-          <span className="row-item__title">Hoạt động mic (giả lập)</span>
-          <span className="row-item__meta">
-            Phase 1 chưa có kênh thoại thật. Bật để xem vòng sáng và sóng âm quanh avatar
-            đang nói — lớp realtime sẽ thay bằng trạng thái voice-activity.
-          </span>
+          <span className="row-item__title">{t("settings.micTitle")}</span>
+          <span className="row-item__meta">{t("settings.micDesc")}</span>
         </span>
       </div>
       <button
@@ -276,7 +236,7 @@ export function SettingsPanel({
         onClick={onToggleDemoVoice}
       >
         <Mic size={15} aria-hidden="true" />
-        {demoVoice ? "Đang mô phỏng mic" : "Đang tắt mô phỏng"}
+        {demoVoice ? t("settings.micOn") : t("settings.micOff")}
       </button>
     </PanelShell>
   );
@@ -339,8 +299,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function describeSeat(seatId: string): string {
-  const match = seatId.match(/r(\d+)c(\d+)/);
-  if (!match) return seatId;
-  return `Hàng ${Number(match[1]) + 1}, số ${Number(match[2]) + 1}`;
+function describeSeat(seatIdValue: string, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const match = seatIdValue.match(/r(\d+)c(\d+)/);
+  if (!match) return seatIdValue;
+  return t("seats.position", { row: Number(match[1]) + 1, col: Number(match[2]) + 1 });
 }

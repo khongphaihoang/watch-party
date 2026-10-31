@@ -1,3 +1,5 @@
+import { useLocaleStore } from "./locale-store";
+
 export function formatDuration(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(safe / 3600);
@@ -14,8 +16,9 @@ export function formatClock(epochMs: number): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-export function formatCount(value: number): string {
-  return new Intl.NumberFormat("vi-VN").format(value);
+export function formatCount(value: number, locale?: string): string {
+  const current = locale ?? useLocaleStore.getState().locale;
+  return new Intl.NumberFormat(current === "en" ? "en-US" : "vi-VN").format(value);
 }
 
 export function initials(name: string): string {

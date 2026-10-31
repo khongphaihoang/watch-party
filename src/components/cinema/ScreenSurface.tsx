@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useRoomStore } from "@/lib/room-store";
+import { useT } from "@/lib/i18n";
 import type { NowPlaying, UiStatus } from "@/lib/room-types";
 import { YouTubePlayer } from "./YouTubePlayer";
 
@@ -29,6 +30,7 @@ function ScreenPoster({
   steps?: boolean;
   footer?: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="screen-poster">
       <span className="screen-poster__mark">
@@ -40,10 +42,10 @@ function ScreenPoster({
       {steps ? (
         <div className="screen-poster__steps">
           <span>
-            <Radio size={24} aria-hidden="true" /> Rạp đang mở cửa
+            <Radio size={24} aria-hidden="true" /> {t("screen.stepOpen")}
           </span>
           <span>
-            <Users size={24} aria-hidden="true" /> Ghế đơn và ghế đôi
+            <Users size={24} aria-hidden="true" /> {t("screen.stepSeats")}
           </span>
         </div>
       ) : null}
@@ -51,7 +53,7 @@ function ScreenPoster({
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span className="spinner" />
           <span style={{ fontSize: "0.46em", color: "var(--text-faint)" }}>
-            Đang kết nối YouTube…
+            {t("screen.connectingYouTube")}
           </span>
         </span>
       ) : null}
@@ -96,6 +98,7 @@ export function ScreenSurface({
   onPlayNext: () => void;
   hasQueue: boolean;
 }) {
+  const t = useT();
   const setPlaybackState = useRoomStore((state) => state.setPlaybackState);
   const [playerReady, setPlayerReady] = useState(false);
   const [playerFailed, setPlayerFailed] = useState(false);
@@ -138,24 +141,26 @@ export function ScreenSurface({
 
           {showPoster ? (
             <ScreenPoster
-              eyebrow={nowPlaying ? "ĐANG KẾT NỐI MÀN CHIẾU" : "MỘT CHIẾC RẠP · CẢ HỘI CÙNG XEM"}
+              eyebrow={
+                nowPlaying ? t("screen.eyebrowConnecting") : t("screen.eyebrowIdle")
+              }
               title={
                 nowPlaying ? (
                   nowPlaying.title
                 ) : (
                   <>
-                    Chỗ này còn trống.
+                    {t("screen.titleIdleLine1")}
                     <br />
-                    Chờ bạn và một bộ phim hay.
+                    {t("screen.titleIdleLine2")}
                   </>
                 )
               }
               subtitle={
                 playerFailed
-                  ? "Chưa tải được YouTube. Bạn thử lại nhé."
+                  ? t("screen.playerFailed")
                   : nowPlaying
-                    ? `${nowPlaying.channelTitle} · màn chiếu đang chuẩn bị`
-                    : "Chọn một chỗ ngồi · Gửi video bạn thích · Bình luận cùng nhau"
+                    ? t("screen.preparing", { channel: nowPlaying.channelTitle })
+                    : t("screen.subtitleIdle")
               }
               busy={mountsPlayer && !playerFailed}
               steps={!nowPlaying}
@@ -167,7 +172,7 @@ export function ScreenSurface({
                     onClick={() => setAttempt((value) => value + 1)}
                   >
                     <RotateCcw size={15} aria-hidden="true" />
-                    Thử lại
+                    {t("screen.retry")}
                   </button>
                 ) : null
               }
@@ -177,8 +182,10 @@ export function ScreenSurface({
           {nowPlaying && showPoster ? (
             <>
               <div className="screen-topline" aria-hidden="true">
-                <span>RẠP NHÀ / PHÒNG CHIẾU CHUNG</span>
-                <span>{nowPlaying.isLive ? "TRỰC TIẾP" : "CÙNG MỘT MÀN HÌNH"}</span>
+                <span>{t("screen.topLeft")}</span>
+                <span>
+                  {nowPlaying.isLive ? t("screen.topRightLive") : t("screen.topRight")}
+                </span>
               </div>
               <div className="screen-botline" aria-hidden="true">
                 <span>{nowPlaying.channelTitle}</span>
@@ -192,19 +199,19 @@ export function ScreenSurface({
           {ui === "loading" ? (
             <StatusBlock
               icon={<span className="spinner" />}
-              title="Đang mở cửa rạp…"
-              description="Đang lấy trạng thái phòng và xếp ghế. Chờ một nhịp thôi."
+              title={t("screen.loadingTitle")}
+              description={t("screen.loadingDesc")}
             />
           ) : null}
 
           {ui === "full" ? (
             <StatusBlock
               icon={<Users size={56} aria-hidden="true" />}
-              title="Rạp đã kín chỗ"
-              description="Cả 72 ghế đã có người. Bạn vẫn xem được ở chế độ khán giả và trò chuyện cùng rạp."
+              title={t("screen.fullTitle")}
+              description={t("screen.fullDesc")}
               action={
                 <button type="button" className="btn btn-secondary" onClick={onPlayNext}>
-                  Xem ở chế độ khán giả
+                  {t("screen.fullAction")}
                 </button>
               }
             />
@@ -213,24 +220,24 @@ export function ScreenSurface({
           {ui === "ended" ? (
             <StatusBlock
               icon={<Clapperboard size={56} aria-hidden="true" />}
-              title="Suất chiếu đã kết thúc"
-              description="Cảm ơn cả hội đã cùng xem. Ghế của bạn được giữ trong 10 phút nếu muốn mở suất mới."
+              title={t("screen.endedTitle")}
+              description={t("screen.endedDesc")}
             />
           ) : null}
 
           {ui === "ready" && playingState === "paused" ? (
             <StatusBlock
               icon={<PlayCircle size={56} aria-hidden="true" />}
-              title="Tạm dừng"
-              description="Chủ rạp vừa tạm dừng để cả hội kịp vào. Video sẽ tiếp tục khi chủ rạp bấm phát."
+              title={t("screen.pausedTitle")}
+              description={t("screen.pausedDesc")}
             />
           ) : null}
 
           {ui === "ready" && playingState === "buffering" ? (
             <StatusBlock
               icon={<span className="spinner" />}
-              title="Đang đồng bộ…"
-              description="Đang căn lại thời điểm phát với cả rạp."
+              title={t("screen.bufferingTitle")}
+              description={t("screen.bufferingDesc")}
             />
           ) : null}
 
@@ -238,17 +245,17 @@ export function ScreenSurface({
             <StatusBlock
               tone="danger"
               icon={<TriangleAlert size={56} aria-hidden="true" />}
-              title="Không phát được video này"
+              title={t("screen.errorTitle")}
               description={
                 nowPlaying?.errorCode === "embed-disabled"
-                  ? "Chủ video không cho phép phát nhúng."
+                  ? t("screen.errorEmbed")
                   : nowPlaying?.errorCode === "removed"
-                    ? "Video đã bị xoá hoặc đặt riêng tư."
-                    : "YouTube không phát được video này. Bạn thử lại hoặc bỏ qua video."
+                    ? t("screen.errorRemoved")
+                    : t("screen.errorGeneric")
               }
               action={
                 <button type="button" className="btn btn-primary" onClick={onPlayNext}>
-                  Bỏ qua video, chiếu mục tiếp theo
+                  {t("screen.errorAction")}
                 </button>
               }
             />
@@ -257,15 +264,15 @@ export function ScreenSurface({
           {ui === "ready" && playingState === "ended" ? (
             <StatusBlock
               icon={<MonitorPlay size={56} aria-hidden="true" />}
-              title="Hết video"
+              title={t("screen.videoEndedTitle")}
               description={
                 hasQueue
-                  ? `Xin chào ${viewerName} — hàng chờ còn video, bấm để chiếu tiếp.`
-                  : "Hàng chờ đang trống. Gửi video để cả rạp xem tiếp."
+                  ? t("screen.videoEndedQueue", { name: viewerName })
+                  : t("screen.videoEndedEmpty")
               }
               action={
                 <button type="button" className="btn btn-primary" onClick={onPlayNext}>
-                  Chuyển bài tiếp theo
+                  {t("nowPlaying.playNext")}
                 </button>
               }
             />

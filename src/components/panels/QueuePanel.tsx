@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ListVideo, Play, Plus, Trash2, Video } from "lucide-react";
 import { formatDuration } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { RoomState } from "@/lib/room-types";
 import { PanelShell } from "./PanelShell";
 
@@ -19,12 +20,13 @@ export function QueuePanel({
   onPlayNext: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [url, setUrl] = useState("");
 
   return (
     <PanelShell
-      title="Hàng chờ video"
-      subtitle={`${room.queue.length} mục đang chờ · chủ rạp bấm chiếu`}
+      title={t("queue.title")}
+      subtitle={t("queue.subtitle", { count: room.queue.length })}
       onClose={onClose}
       footer={
         <button
@@ -34,13 +36,13 @@ export function QueuePanel({
           disabled={room.queue.length === 0}
         >
           <Play size={15} aria-hidden="true" />
-          Chuyển bài tiếp theo
+          {t("nowPlaying.playNext")}
         </button>
       }
     >
       <div className="field">
         <label className="field__label" htmlFor="queue-url">
-          Thêm video YouTube
+          {t("queue.addLabel")}
         </label>
         <div style={{ display: "flex", gap: 6 }}>
           <input
@@ -62,19 +64,19 @@ export function QueuePanel({
             }}
           >
             <Plus size={15} aria-hidden="true" />
-            Thêm
+            {t("queue.add")}
           </button>
         </div>
-        <p className="hint">Dán liên kết video hoặc livestream công khai của YouTube.</p>
+        <p className="hint">{t("queue.hint")}</p>
       </div>
 
       {room.queue.length === 0 ? (
         <div className="field" style={{ alignItems: "center", padding: "24px 0", gap: 10 }}>
           <ListVideo size={26} aria-hidden="true" style={{ color: "var(--text-faint)" }} />
           <p className="hint" style={{ textAlign: "center" }}>
-            Hàng chờ đang trống.
+            {t("queue.emptyLine1")}
             <br />
-            Thêm video để cả rạp xem tiếp.
+            {t("queue.emptyLine2")}
           </p>
         </div>
       ) : (
@@ -98,7 +100,7 @@ export function QueuePanel({
                 type="button"
                 className="icon-btn"
                 onClick={() => onDequeue(item.id)}
-                aria-label={`Xoá ${item.title} khỏi hàng chờ`}
+                aria-label={t("queue.remove", { title: item.title })}
               >
                 <Trash2 size={16} aria-hidden="true" />
               </button>
@@ -109,7 +111,7 @@ export function QueuePanel({
 
       <p className="hint" style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Video size={13} aria-hidden="true" />
-        Video được phát trực tiếp từ YouTube, rạp chỉ giữ trạng thái phát.
+        {t("queue.footnote")}
       </p>
     </PanelShell>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { t } from "./i18n";
 import type { AuthTab, LoginCredentials, RegisterData, User } from "./auth-types";
 
 const SESSION_STORAGE_KEY = "rap-chieu:auth-session";
@@ -12,32 +13,13 @@ interface StoredAccount {
   passwordHash: string;
 }
 
-// Tài khoản demo mặc định để người dùng có thể thử nghiệm ngay lập tức
-const DEFAULT_DEMO_USER: User = {
-  id: "u-demo-01",
-  email: "demo@rapchieu.vn",
-  displayName: "Hoàng Duy",
-  avatarColor: "#D6E87F",
-  role: "vip",
-  points: 1250,
-  createdAt: Date.now() - 86400000 * 7,
-};
-
-const DEFAULT_ACCOUNTS: StoredAccount[] = [
-  {
-    user: DEFAULT_DEMO_USER,
-    passwordHash: "123456",
-  },
-];
+const DEFAULT_ACCOUNTS: StoredAccount[] = [];
 
 function getStoredAccounts(): StoredAccount[] {
   if (typeof window === "undefined") return DEFAULT_ACCOUNTS;
   try {
     const raw = localStorage.getItem(USERS_DB_KEY);
-    if (!raw) {
-      localStorage.setItem(USERS_DB_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
-      return DEFAULT_ACCOUNTS;
-    }
+    if (!raw) return DEFAULT_ACCOUNTS;
     return JSON.parse(raw) as StoredAccount[];
   } catch {
     return DEFAULT_ACCOUNTS;
@@ -48,7 +30,12 @@ function saveAccount(account: StoredAccount) {
   if (typeof window === "undefined") return;
   try {
     const list = getStoredAccounts();
-    const updated = [...list.filter((item) => item.user.email !== account.user.email), account];
+    const updated = [
+      ...list.filter(
+        (item) => item.user.username.toLowerCase() !== account.user.username.toLowerCase(),
+      ),
+      account,
+    ];
     localStorage.setItem(USERS_DB_KEY, JSON.stringify(updated));
   } catch {
     // Không ghi được local storage
@@ -86,7 +73,6 @@ interface AuthStore {
 
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
-  loginWithDemo: () => Promise<boolean>;
   continueAsGuest: () => void;
   logout: () => void;
   updateUserDisplayName: (name: string) => void;
@@ -127,24 +113,22 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
     login: async (credentials) => {
       set({ loading: true, errorMessage: null });
+      await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // Giả lập độ trễ mạng ngắn để tạo cảm giác xử lý chân thực
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const input = credentials.emailOrUsername.trim().toLowerCase();
+      const inputUser = credentials.username.trim().toLowerCase();
       const pwd = credentials.password;
 
       const accounts = getStoredAccounts();
       const matched = accounts.find(
         (acc) =>
-          acc.user.email.toLowerCase() === input ||
-          acc.user.displayName.toLowerCase() === input,
+          acc.user.username.toLowerCase() === inputUser ||
+          acc.user.displayName.toLowerCase() === inputUser,
       );
 
       if (!matched) {
         set({
           loading: false,
-          errorMessage: "Email hoặc tài khoản không tồn tại. Bạn hãy kiểm tra lại nhé.",
+          errorMessage: t("auth.errNoAccount"),
         });
         return false;
       }
@@ -152,7 +136,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       if (matched.passwordHash !== pwd) {
         set({
           loading: false,
-          errorMessage: "Mật khẩu chưa chính xác. Vui lòng thử lại.",
+          errorMessage: t("auth.errWrongPassword"),
         });
         return false;
       }
@@ -162,7 +146,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(matched.user));
         }
       } catch {
-        // Bỏ qua lỗi lưu trữ
+        // Bỏ qua lỗi
       }
 
       set({
@@ -179,15 +163,20 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
     register: async (data) => {
       set({ loading: true, errorMessage: null });
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 350));
 
-      const email = data.email.trim().toLowerCase();
+      const username = data.username.trim();
+      const displayName = data.displayName.trim() || username;
       const accounts = getStoredAccounts();
 
-      if (accounts.some((acc) => acc.user.email.toLowerCase() === email)) {
+      if (
+        accounts.some(
+          (acc) => acc.user.username.toLowerCase() === username.toLowerCase(),
+        )
+      ) {
         set({
           loading: false,
-          errorMessage: "Email này đã được đăng ký. Bạn hãy chuyển sang tab Đăng nhập nhé.",
+          errorMessage: t("auth.errUsernameTaken"),
         });
         return false;
       }
@@ -197,11 +186,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
       const newUser: User = {
         id: `u-${Date.now()}`,
-        email,
-        displayName: data.displayName.trim() || "Khán giả",
+        username,
+        displayName,
         avatarColor: randomColor,
         role: "viewer",
-        points: 500, // Tặng 500 điểm thưởng tân thủ
+        points: 500,
         createdAt: Date.now(),
       };
 
@@ -213,33 +202,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       try {
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newUser));
       } catch {
-        // Bỏ qua lỗi lưu trữ
+        // Bỏ qua lỗi
       }
 
       set({
         user: newUser,
-        isAuthenticated: true,
-        isGuest: false,
-        isModalOpen: false,
-        loading: false,
-        errorMessage: null,
-      });
-
-      return true;
-    },
-
-    loginWithDemo: async () => {
-      set({ loading: true, errorMessage: null });
-      await new Promise((resolve) => setTimeout(resolve, 400));
-
-      try {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_USER));
-      } catch {
-        // Bỏ qua
-      }
-
-      set({
-        user: DEFAULT_DEMO_USER,
         isAuthenticated: true,
         isGuest: false,
         isModalOpen: false,

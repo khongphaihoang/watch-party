@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import type { RoomState } from "./room-types";
 
 /** Cấu hình phòng do người dùng tạo ở popup khởi động. */
@@ -43,11 +44,12 @@ export function loadRoomSetup(code: string): RoomSetup | null {
     return {
       code,
       title: setup.title,
-      hostName: typeof setup.hostName === "string" ? setup.hostName : "Bạn",
+      hostName: typeof setup.hostName === "string" ? setup.hostName : t("common.you"),
       videoId: setup.videoId,
-      videoTitle: typeof setup.videoTitle === "string" ? setup.videoTitle : "Video từ YouTube",
+      videoTitle:
+        typeof setup.videoTitle === "string" ? setup.videoTitle : t("onboard.pastedTitle"),
       channelTitle:
-        typeof setup.channelTitle === "string" ? setup.channelTitle : "Link bạn dán",
+        typeof setup.channelTitle === "string" ? setup.channelTitle : t("onboard.pastedChannel"),
       createdAt: typeof setup.createdAt === "number" ? setup.createdAt : Date.now(),
     };
   } catch {
@@ -57,7 +59,7 @@ export function loadRoomSetup(code: string): RoomSetup | null {
 
 /** Ghép cấu hình đã lưu vào phòng mẫu: đổi tên rạp, tên chủ rạp và video đang chiếu. */
 export function applyRoomSetup(room: RoomState, setup: RoomSetup): RoomState {
-  const hostName = setup.hostName.trim() || "Bạn";
+  const hostName = setup.hostName.trim() || t("common.you");
   return {
     ...room,
     code: setup.code,
@@ -70,7 +72,7 @@ export function applyRoomSetup(room: RoomState, setup: RoomSetup): RoomState {
       videoId: setup.videoId,
       title: setup.videoTitle,
       channelTitle: setup.channelTitle,
-      description: "Suất chiếu do bạn mở. Cả rạp cùng xem nhé.",
+      description: t("store.showOpenedByYou"),
       durationSec: 0,
       isLive: false,
       state: "playing",

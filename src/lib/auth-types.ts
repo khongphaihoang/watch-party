@@ -2,7 +2,7 @@ export type UserRole = "viewer" | "vip" | "host";
 
 export interface User {
   id: string;
-  email: string;
+  username: string;
   displayName: string;
   avatarColor: string;
   role: UserRole;
@@ -11,17 +11,16 @@ export interface User {
 }
 
 export interface LoginCredentials {
-  emailOrUsername: string;
+  username: string;
   password: string;
   rememberMe?: boolean;
 }
 
 export interface RegisterData {
+  username: string;
   displayName: string;
-  email: string;
   password: string;
   confirmPassword: string;
-  agreeTerms: boolean;
 }
 
 export type AuthTab = "login" | "register";

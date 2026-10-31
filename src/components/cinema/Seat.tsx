@@ -3,14 +3,15 @@
 import { memo } from "react";
 import { MicOff } from "lucide-react";
 import { initials } from "@/lib/format";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { Member, SeatStatus } from "@/lib/room-types";
 import { AvatarFigure } from "./AvatarFigure";
 
-const STATUS_LABEL: Record<SeatStatus, string> = {
-  empty: "còn trống",
-  occupied: "đã có người",
-  mine: "bạn đang ngồi",
-  held: "đang được giữ chỗ",
+const STATUS_LABEL: Record<SeatStatus, MessageKey> = {
+  empty: "seat.statusEmpty",
+  occupied: "seat.statusOccupied",
+  mine: "seat.statusMine",
+  held: "seat.statusHeld",
 };
 
 function SeatBase({
@@ -28,9 +29,16 @@ function SeatBase({
   speaking?: boolean;
   onSelect: (row: number, col: number) => void;
 }) {
-  const label = `Hàng ${row + 1} số ${col + 1} — ${STATUS_LABEL[status]}${
-    member ? `: ${member.displayName}` : ""
-  }`;
+  const t = useT();
+  const statusLabel = t(STATUS_LABEL[status]);
+  const label = member
+    ? t("seat.ariaWithMember", {
+        row: row + 1,
+        col: col + 1,
+        status: statusLabel,
+        name: member.displayName,
+      })
+    : t("seat.aria", { row: row + 1, col: col + 1, status: statusLabel });
 
   return (
     <button
@@ -61,25 +69,27 @@ function SeatBase({
           <span className="seat-tip__body">
             <span className="seat-tip__name">
               {member.displayName}
-              {member.isHost ? <span className="seat-tip__tag">chủ rạp</span> : null}
+              {member.isHost ? <span className="seat-tip__tag">{t("seat.host")}</span> : null}
             </span>
             <span className="seat-tip__meta">
               <span className="seat-tip__online" />
-              Trong rạp
+              {t("seat.inRoom")}
               <span className="seat-tip__sep">·</span>
               {member.micOn === false ? (
                 <span className="seat-tip__mic is-off">
-                  <MicOff size={10} aria-hidden="true" /> Mic tắt
+                  <MicOff size={10} aria-hidden="true" /> {t("seat.micOff")}
                 </span>
               ) : (
-                <span className="seat-tip__mic">Mic mở</span>
+                <span className="seat-tip__mic">{t("seat.micOn")}</span>
               )}
             </span>
           </span>
         </span>
       ) : null}
 
-      {status === "mine" ? <span className="seat__badge">Bạn</span> : null}
+      {status === "mine" ? (
+        <span className="seat__badge">{member?.displayName || t("common.you")}</span>
+      ) : null}
     </button>
   );
 }

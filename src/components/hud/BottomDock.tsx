@@ -17,6 +17,7 @@ import {
   Waves,
 } from "lucide-react";
 import type { PanelId, RoomMode, Viewpoint } from "@/lib/room-types";
+import { useT } from "@/lib/i18n";
 import { ViewpointSwitcher } from "./ViewpointSwitcher";
 
 const MAX_LEN = 200;
@@ -63,6 +64,7 @@ export function BottomDock({
   uiHidden: boolean;
   onToggleUiHidden: () => void;
 }) {
+  const t = useT();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const nearLimit = draft.length >= MAX_LEN - 20;
 
@@ -74,8 +76,8 @@ export function BottomDock({
           className={`icon-btn ${focus ? "is-active" : ""}`}
           onClick={onToggleFocus}
           aria-pressed={focus}
-          aria-label={focus ? "Thoát chế độ tập trung" : "Bật chế độ tập trung"}
-          data-tip={focus ? "Thoát Focus (Esc)" : "Focus Mode (F)"}
+          aria-label={focus ? t("dock.focusOff") : t("dock.focusOn")}
+          data-tip={focus ? t("dock.focusTipOff") : t("dock.focusTipOn")}
         >
           {focus ? <Shrink size={18} aria-hidden="true" /> : <Focus size={18} aria-hidden="true" />}
         </button>
@@ -83,8 +85,8 @@ export function BottomDock({
           type="button"
           className="icon-btn dock__dup"
           onClick={onToggleFullscreen}
-          aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
-          data-tip={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+          aria-label={isFullscreen ? t("dock.exitFullscreen") : t("dock.fullscreen")}
+          data-tip={isFullscreen ? t("dock.exitFullscreen") : t("dock.fullscreen")}
         >
           {isFullscreen ? (
             <Minimize2 size={18} aria-hidden="true" />
@@ -96,8 +98,8 @@ export function BottomDock({
           type="button"
           className={`icon-btn dock__dup ${activePanel === "seats" ? "is-active" : ""}`}
           onClick={() => onOpenPanel(activePanel === "seats" ? null : "seats")}
-          aria-label="Chọn ghế"
-          data-tip="Chọn ghế"
+          aria-label={t("dock.seats")}
+          data-tip={t("dock.seats")}
         >
           <Armchair size={18} aria-hidden="true" />
         </button>
@@ -106,8 +108,8 @@ export function BottomDock({
           className={`icon-btn ${mode === "flat" ? "is-active" : ""}`}
           onClick={onToggleMode}
           aria-pressed={mode === "flat"}
-          aria-label={mode === "flat" ? "Chuyển về không gian rạp" : "Chuyển sang chế độ màn hình phẳng"}
-          data-tip={mode === "flat" ? "Không gian rạp" : "Màn hình phẳng"}
+          aria-label={mode === "flat" ? t("dock.theaterMode") : t("dock.flatMode")}
+          data-tip={mode === "flat" ? t("dock.theaterTip") : t("dock.flatTip")}
         >
           <Waves size={18} aria-hidden="true" />
         </button>
@@ -115,8 +117,8 @@ export function BottomDock({
           type="button"
           className={`icon-btn dock__dup ${activePanel === "members" ? "is-active" : ""}`}
           onClick={() => onOpenPanel(activePanel === "members" ? null : "members")}
-          aria-label="Xem thành viên"
-          data-tip="Thành viên trong rạp"
+          aria-label={t("dock.members")}
+          data-tip={t("dock.membersTip")}
         >
           <Users size={18} aria-hidden="true" />
         </button>
@@ -125,8 +127,8 @@ export function BottomDock({
           className={`icon-btn dock__ui-toggle ${uiHidden ? "is-active" : ""}`}
           onClick={onToggleUiHidden}
           aria-pressed={uiHidden}
-          aria-label="Ẩn giao diện"
-          data-tip="Ẩn giao diện (H)"
+          aria-label={t("dock.hideUi")}
+          data-tip={t("dock.hideUiTip")}
         >
           <EyeOff size={18} aria-hidden="true" />
         </button>
@@ -136,7 +138,7 @@ export function BottomDock({
 
       <div className="dock__chat">
         <label htmlFor="chat-input" className="sr-only">
-          Tin nhắn cho cả rạp
+          {t("dock.chatLabel")}
         </label>
         <input
           id="chat-input"
@@ -144,7 +146,7 @@ export function BottomDock({
           type="text"
           value={draft}
           maxLength={MAX_LEN}
-          placeholder="Nhắn gì đó cho cả rạp…"
+          placeholder={t("dock.chatPlaceholder")}
           autoComplete="off"
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
@@ -161,8 +163,8 @@ export function BottomDock({
           type="button"
           className="icon-btn dock__expand"
           onClick={() => onOpenPanel("chat")}
-          aria-label="Mở khung chat"
-          data-tip="Mở khung chat"
+          aria-label={t("dock.openChat")}
+          data-tip={t("dock.openChat")}
         >
           <MessageSquareMore size={18} aria-hidden="true" />
         </button>
@@ -171,14 +173,14 @@ export function BottomDock({
             type="button"
             className="icon-btn"
             aria-expanded={emojiOpen}
-            aria-label="Biểu tượng cảm xúc"
-            data-tip="Biểu tượng cảm xúc"
+            aria-label={t("dock.emoji")}
+            data-tip={t("dock.emoji")}
             onClick={() => setEmojiOpen((open) => !open)}
           >
             <Smile size={18} aria-hidden="true" />
           </button>
           {emojiOpen ? (
-            <div className="panel emoji-pop" role="dialog" aria-label="Chọn biểu tượng cảm xúc">
+            <div className="panel emoji-pop" role="dialog" aria-label={t("dock.emojiDialog")}>
               {EMOJI.map((emoji) => (
                 <button
                   key={emoji}
@@ -188,7 +190,7 @@ export function BottomDock({
                     onDraftChange((draft + emoji).slice(0, MAX_LEN));
                     setEmojiOpen(false);
                   }}
-                  aria-label={`Chèn ${emoji}`}
+                  aria-label={t("dock.insertEmoji", { emoji })}
                 >
                   <span aria-hidden="true">{emoji}</span>
                 </button>
@@ -203,7 +205,7 @@ export function BottomDock({
           disabled={draft.trim().length === 0}
         >
           <Send size={15} aria-hidden="true" />
-          <span className="dock__send-label">Gửi</span>
+          <span className="dock__send-label">{t("dock.send")}</span>
         </button>
       </div>
 
@@ -213,8 +215,8 @@ export function BottomDock({
           className="icon-btn"
           onClick={onToggleSound}
           aria-pressed={soundOn}
-          aria-label={soundOn ? "Tắt âm thanh" : "Bật âm thanh"}
-          data-tip={soundOn ? "Tắt âm thanh" : "Bật âm thanh"}
+          aria-label={soundOn ? t("dock.soundOff") : t("dock.soundOn")}
+          data-tip={soundOn ? t("dock.soundOff") : t("dock.soundOn")}
         >
           {soundOn ? (
             <Volume2 size={18} aria-hidden="true" />
@@ -224,7 +226,7 @@ export function BottomDock({
         </button>
         <div className="volume">
           <label htmlFor="volume" className="sr-only">
-            Âm lượng
+            {t("dock.volume")}
           </label>
           <input
             id="volume"

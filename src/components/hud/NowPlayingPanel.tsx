@@ -2,6 +2,7 @@
 
 import { ChevronLeft, Clapperboard, SkipForward, ThumbsUp } from "lucide-react";
 import { formatDuration, percent } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { RoomState } from "@/lib/room-types";
 import { useTicker } from "@/lib/use-ticker";
 import { positionAt } from "@/lib/video-sync";
@@ -19,6 +20,7 @@ export function NowPlayingPanel({
   onToggleSkipVote: () => void;
   onPlayNext: () => void;
 }) {
+  const t = useT();
   const now = useTicker(1000);
   const playing = room.nowPlaying;
   const nextInQueue = room.queue[0];
@@ -32,41 +34,43 @@ export function NowPlayingPanel({
   const duration = playing?.durationSec ?? 0;
   const progress = playing?.isLive ? 100 : percent(position, duration || 1);
 
-  const title = playing?.title ?? "Chưa có suất chiếu";
-  const subtitle = playing?.channelTitle ?? "Rạp đang chờ video đầu tiên";
+  const title = playing?.title ?? t("nowPlaying.empty");
+  const subtitle = playing?.channelTitle ?? t("nowPlaying.waitingFirst");
   const description =
     playing?.description ??
     (nextInQueue
-      ? `Mục tiếp theo trong hàng chờ: ${nextInQueue.title}. Chỉ chủ rạp mới bấm chiếu được.`
-      : "Hàng chờ trống. Gửi một video YouTube để cả rạp cùng xem.");
+      ? t("nowPlaying.nextInQueue", { title: nextInQueue.title })
+      : t("nowPlaying.emptyQueue"));
 
   return (
     <section
       className={`now-playing panel ${collapsed ? "is-collapsed" : ""}`}
-      aria-label="Thông tin suất chiếu"
+      aria-label={t("nowPlaying.aria")}
     >
       <button
         type="button"
         className="now-playing__toggle"
         onClick={onToggleCollapsed}
         aria-expanded={!collapsed}
-        aria-label={collapsed ? "Mở thông tin phim" : "Thu gọn thông tin phim"}
-        data-tip={collapsed ? "Thông tin phim" : "Thu gọn"}
+        aria-label={collapsed ? t("nowPlaying.expand") : t("nowPlaying.collapse")}
+        data-tip={collapsed ? t("nowPlaying.infoTip") : t("nowPlaying.collapseTip")}
       >
         {collapsed ? <Clapperboard size={18} aria-hidden="true" /> : <ChevronLeft size={18} aria-hidden="true" />}
       </button>
 
       <div className="now-playing__content">
         <div className="now-playing__head">
-          <span className="eyebrow">Trên màn ảnh</span>
+          <span className="eyebrow">{t("nowPlaying.eyebrow")}</span>
           {playing?.isLive ? (
             <span className="chip chip--live">
-              <span className="dot" /> Trực tiếp
+              <span className="dot" /> {t("common.live")}
             </span>
           ) : playing ? (
-            <span className="chip">{playing.state === "playing" ? "Đang chiếu" : "Tạm dừng"}</span>
+            <span className="chip">
+              {playing.state === "playing" ? t("common.playing") : t("common.paused")}
+            </span>
           ) : (
-            <span className="chip chip--warn">Đang chờ</span>
+            <span className="chip chip--warn">{t("common.waiting")}</span>
           )}
         </div>
 
@@ -90,12 +94,12 @@ export function NowPlayingPanel({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress}
-            aria-label="Tiến trình phát"
+            aria-label={t("nowPlaying.progress")}
           >
             <div className="progress__bar" style={{ width: `${progress}%` }} />
           </div>
           <div className="progress__labels" style={{ marginTop: 6 }}>
-            <span>{playing?.isLive ? "Trực tiếp" : formatDuration(position)}</span>
+            <span>{playing?.isLive ? t("common.live") : formatDuration(position)}</span>
             <span>
               {playing?.isLive || duration <= 0 ? "—" : formatDuration(duration)}
             </span>
@@ -105,16 +109,19 @@ export function NowPlayingPanel({
         {room.skipVote && playing ? (
           <div className="vote">
             <div className="vote__row">
-              <span>Bình chọn bỏ qua video</span>
+              <span>{t("nowPlaying.skipVote")}</span>
               <span className="vote__ratio">
                 {percent(room.skipVote.yes, room.skipVote.total)}%
               </span>
             </div>
             <div className="vote__row">
               <span>
-                {room.skipVote.yes} / {room.skipVote.total} người đồng ý
+                {t("nowPlaying.agreeCount", {
+                  yes: room.skipVote.yes,
+                  total: room.skipVote.total,
+                })}
               </span>
-              <span style={{ color: "var(--text-faint)" }}>cần 50%</span>
+              <span style={{ color: "var(--text-faint)" }}>{t("nowPlaying.needHalf")}</span>
             </div>
             <button
               type="button"
@@ -127,15 +134,15 @@ export function NowPlayingPanel({
               ) : (
                 <SkipForward size={15} aria-hidden="true" />
               )}
-              {room.skipVote.voted ? "Bạn đã vote · rút phiếu" : "Vote bỏ qua"}
+              {room.skipVote.voted ? t("nowPlaying.voted") : t("nowPlaying.vote")}
             </button>
             <button type="button" className="btn btn-ghost btn-block" onClick={onPlayNext}>
-              Chuyển bài tiếp theo
+              {t("nowPlaying.playNext")}
             </button>
           </div>
         ) : (
           <button type="button" className="btn btn-secondary btn-block" onClick={onPlayNext}>
-            Chọn video tiếp theo
+            {t("nowPlaying.chooseNext")}
           </button>
         )}
       </div>

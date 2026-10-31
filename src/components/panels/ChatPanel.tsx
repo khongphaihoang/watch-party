@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { formatClock, initials } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { RoomState } from "@/lib/room-types";
 import { PanelShell } from "./PanelShell";
 
@@ -22,6 +23,7 @@ export function ChatPanel({
   onSend: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [reactions, setReactions] = useState<Array<{ id: number; emoji: string }>>([]);
   const reactionId = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
@@ -41,8 +43,8 @@ export function ChatPanel({
 
   return (
     <PanelShell
-      title="Trò chuyện"
-      subtitle={`${room.messages.length} tin nhắn · cả rạp cùng đọc`}
+      title={t("chat.title")}
+      subtitle={t("chat.subtitle", { count: room.messages.length })}
       onClose={onClose}
       footer={
         <div className="chat-compose">
@@ -52,7 +54,7 @@ export function ChatPanel({
                 key={emoji}
                 type="button"
                 className="chat-reaction"
-                aria-label={`Thả ${emoji}`}
+                aria-label={t("chat.react", { emoji })}
                 onClick={() => {
                   reactionId.current += 1;
                   const id = reactionId.current;
@@ -69,18 +71,18 @@ export function ChatPanel({
                 </span>
               ))}
             </div>
-            <span className="chat-compose__hint">Enter để gửi</span>
+            <span className="chat-compose__hint">{t("chat.enterHint")}</span>
           </div>
           <div className="chat-compose__row">
             <label htmlFor={inputId} className="sr-only">
-              Tin nhắn cho cả rạp
+              {t("dock.chatLabel")}
             </label>
             <input
               id={inputId}
               className="input chat-compose__input"
               value={draft}
               maxLength={MAX_LEN}
-              placeholder="Nhập tin nhắn rồi Enter…"
+              placeholder={t("chat.placeholder")}
               autoComplete="off"
               onChange={(event) => onDraftChange(event.target.value)}
               onKeyDown={(event) => {
@@ -100,7 +102,7 @@ export function ChatPanel({
               disabled={draft.trim().length === 0}
             >
               <Send size={15} aria-hidden="true" />
-              Gửi
+              {t("dock.send")}
             </button>
           </div>
         </div>

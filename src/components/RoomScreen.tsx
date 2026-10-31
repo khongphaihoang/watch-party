@@ -10,12 +10,13 @@ import { NowPlayingPanel } from "@/components/hud/NowPlayingPanel";
 import { RoomTopBar } from "@/components/hud/RoomTopBar";
 import { ToolRail } from "@/components/hud/ToolRail";
 import { ChatPanel } from "@/components/panels/ChatPanel";
-import { MembersPanel, GamePanel, InfoPanel, PhotosPanel, SettingsPanel } from "@/components/panels/Panels";
+import { MembersPanel, InfoPanel, PhotosPanel, SettingsPanel } from "@/components/panels/Panels";
 import { QueuePanel } from "@/components/panels/QueuePanel";
 import { SeatsPanel } from "@/components/panels/SeatsPanel";
 import { WardrobePanel } from "@/components/panels/WardrobePanel";
 import { BoostPanel } from "@/components/panels/Panels";
 import { useRoomStore } from "@/lib/room-store";
+import { useT } from "@/lib/i18n";
 import type { ViewportTier } from "@/lib/theater-layout";
 
 /** Chờ bao lâu không có thao tác thì HUD trong Focus Mode tự ẩn. */
@@ -73,6 +74,8 @@ export function RoomScreen({ code }: { code: string }) {
     setSpeaking,
     toggleDemoVoice,
   } = useRoomStore();
+
+  const t = useT();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chromeIdle, setChromeIdle] = useState(false);
@@ -197,11 +200,11 @@ export function RoomScreen({ code }: { code: string }) {
     const url = `${window.location.origin}/room/${room?.code ?? code}`;
     try {
       await navigator.clipboard.writeText(url);
-      pushToast("Đã sao chép link rạp.", "ok");
+      pushToast(t("room.linkCopied"), "ok");
     } catch {
-      pushToast(`Link rạp: ${url}`, "info");
+      pushToast(t("room.linkFallback", { url }), "info");
     }
-  }, [code, pushToast, room?.code]);
+  }, [code, pushToast, room?.code, t]);
 
   const handleFullscreen = useCallback(async () => {
     try {
@@ -211,9 +214,9 @@ export function RoomScreen({ code }: { code: string }) {
         await document.documentElement.requestFullscreen();
       }
     } catch {
-      pushToast("Trình duyệt chưa hỗ trợ toàn màn hình.", "warn");
+      pushToast(t("room.fullscreenUnsupported"), "warn");
     }
-  }, [pushToast]);
+  }, [pushToast, t]);
 
   const handleSend = useCallback(() => {
     if (draft.trim().length === 0) return;
@@ -231,7 +234,7 @@ export function RoomScreen({ code }: { code: string }) {
           members={[]}
           nowPlaying={null}
           ui="loading"
-          viewerName="Bạn"
+          viewerName={t("common.you")}
           viewerSeatId={undefined}
           hasQueue={false}
           speakingIds={[]}
@@ -239,7 +242,7 @@ export function RoomScreen({ code }: { code: string }) {
           onPlayNext={() => undefined}
         />
         <div className="banner">
-          <span className="spinner" /> Đang mở cửa rạp…
+          <span className="spinner" /> {t("room.opening")}
         </div>
       </main>
     );
@@ -261,7 +264,7 @@ export function RoomScreen({ code }: { code: string }) {
         members={room.members}
         nowPlaying={room.nowPlaying}
         ui={room.ui}
-        viewerName={viewer?.displayName ?? "Bạn"}
+        viewerName={viewer?.displayName ?? t("common.you")}
         viewerSeatId={viewer?.seatId}
         hasQueue={room.queue.length > 0}
         speakingIds={speakingIds}
@@ -286,10 +289,8 @@ export function RoomScreen({ code }: { code: string }) {
       <div className="hud">
         <RoomTopBar
           room={room}
-          isFullscreen={isFullscreen}
           focus={focus}
           onCopyLink={handleCopyLink}
-          onToggleFullscreen={handleFullscreen}
           onToggleFocus={toggleFocus}
           onOpenPanel={setPanel}
         />
@@ -337,10 +338,10 @@ export function RoomScreen({ code }: { code: string }) {
           type="button"
           className="ui-restore"
           onClick={() => setUiHidden(false)}
-          aria-label="Hiện lại giao diện"
+          aria-label={t("room.showUiAria")}
         >
           <Eye size={16} aria-hidden="true" />
-          Hiện giao diện
+          {t("room.showUi")}
           <kbd>H</kbd>
         </button>
       ) : null}
@@ -348,13 +349,13 @@ export function RoomScreen({ code }: { code: string }) {
       {room.ui === "reconnecting" ? (
         <div className="banner banner--warn" role="status">
           <WifiOff size={14} aria-hidden="true" />
-          Đang kết nối lại… video vẫn tiếp tục phát trên máy bạn
+          {t("room.reconnecting")}
         </div>
       ) : null}
 
       {room.ui === "ready" && !viewer?.seatId ? (
         <div className="seat-prompt" role="status">
-          Bạn chưa chọn ghế — bấm vào một ghế trống trong rạp.
+          {t("room.seatPrompt")}
         </div>
       ) : null}
 
@@ -394,6 +395,7 @@ export function RoomScreen({ code }: { code: string }) {
         <SeatsPanel
           seats={seats}
           members={room.members}
+          viewerId={room.viewerId}
           onTakeSeat={takeSeat}
           onClose={() => setPanel(null)}
         />
@@ -402,7 +404,7 @@ export function RoomScreen({ code }: { code: string }) {
       {panel === "wardrobe" ? (
         <WardrobePanel
           currentColor={viewer?.shirtColor ?? "#8e9bd8"}
-          currentName={viewer?.displayName ?? "Bạn"}
+          currentName={viewer?.displayName ?? t("common.you")}
           onClose={() => setPanel(null)}
         />
       ) : null}
@@ -415,7 +417,6 @@ export function RoomScreen({ code }: { code: string }) {
         <InfoPanel room={room} onCopyLink={handleCopyLink} onClose={() => setPanel(null)} />
       ) : null}
 
-      {panel === "game" ? <GamePanel onClose={() => setPanel(null)} /> : null}
       {panel === "photos" ? <PhotosPanel onClose={() => setPanel(null)} /> : null}
       {panel === "boost" ? <BoostPanel onClose={() => setPanel(null)} /> : null}
 
@@ -426,9 +427,7 @@ export function RoomScreen({ code }: { code: string }) {
           onSetUi={setUiStatus}
           onSetPlayback={setPlaybackState}
           onToggleDemoVoice={toggleDemoVoice}
-          onDemoJoin={() =>
-            pushToast("Chào mừng bạn đến rạp! Ghế của bạn đã được giữ.", "ok")
-          }
+          onDemoJoin={() => pushToast(t("room.welcome"), "ok")}
           onClose={() => setPanel(null)}
         />
       ) : null}

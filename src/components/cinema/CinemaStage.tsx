@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useT } from "@/lib/i18n";
 import type { Member, NowPlaying, RoomMode, UiStatus, Viewpoint } from "@/lib/room-types";
 import { parseSeat, seatPose } from "@/lib/seat-view";
 import type { SeatCell, ViewportTier } from "@/lib/theater-layout";
@@ -37,6 +38,7 @@ export function CinemaStage({
   onSeatSelect: (row: number, col: number) => void;
   onPlayNext: () => void;
 }) {
+  const t = useT();
   const membersById = useMemo(
     () => new Map(members.map((member) => [member.id, member])),
     [members],
@@ -70,7 +72,7 @@ export function CinemaStage({
           "--seat-screen-scale": pose.screenScale,
         } as React.CSSProperties
       }
-      aria-label="Rạp chiếu phim 3D: màn hình chiếu ở giữa và các hàng ghế hướng về màn hình"
+      aria-label={t("stage.aria")}
     >
       {/* Vỏ rạp và màn chiếu nằm ở hai lớp 3D riêng để sàn/trần không bao giờ
           cắt lên mặt phẳng video, trong khi vẫn dùng chung một phối cảnh. */}

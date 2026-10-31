@@ -16,22 +16,17 @@ import {
 } from "lucide-react";
 import { generateRoomCode, saveRoomSetup, type RoomSetup } from "@/lib/room-setup";
 import { parseYouTubeId, youTubeThumbnail } from "@/lib/youtube";
+import { useT, type MessageKey } from "@/lib/i18n";
 import { BrandMark } from "@/components/hud/RoomTopBar";
 
 type Step = "name" | "video" | "share";
 
 const STEP_ORDER: Step[] = ["name", "video", "share"];
 
-const STEP_INDICATOR: Record<Step, string> = {
-  name: "Tên rạp",
-  video: "Video",
-  share: "Chia sẻ",
-};
-
-const STEP_EYEBROW: Record<Step, string> = {
-  name: "Bước 1 / 3",
-  video: "Bước 2 / 3",
-  share: "Bước 3 / 3",
+const STEP_INDICATOR: Record<Step, MessageKey> = {
+  name: "onboard.stepName",
+  video: "onboard.stepVideo",
+  share: "onboard.stepShare",
 };
 
 interface SuggestedVideo {
@@ -40,21 +35,21 @@ interface SuggestedVideo {
   channelTitle: string;
 }
 
-const SUGGESTIONS: SuggestedVideo[] = [
+const SUGGESTIONS: Array<{ videoId: string; titleKey: MessageKey; channelKey: MessageKey }> = [
   {
     videoId: "M7lc1UVf-VE",
-    title: "Đêm phim cuối tuần — tập mở màn",
-    channelTitle: "Rạp Nhà Studio",
+    titleKey: "onboard.suggest1Title",
+    channelKey: "onboard.suggest1Channel",
   },
   {
     videoId: "aqz-KE-bpKQ",
-    title: "Cuộc phiêu lưu của chú chim giấy",
-    channelTitle: "Giấy & Gió",
+    titleKey: "onboard.suggest2Title",
+    channelKey: "onboard.suggest2Channel",
   },
   {
     videoId: "ScMzIvxBSi4",
-    title: "Phố đêm Sài Gòn, quay bằng tay",
-    channelTitle: "Chuyện Phố",
+    titleKey: "onboard.suggest3Title",
+    channelKey: "onboard.suggest3Channel",
   },
 ];
 
@@ -79,6 +74,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
   const headingId = useId();
   const stepsId = useId();
+  const t = useT();
 
   const [step, setStep] = useState<Step>("name");
   const [roomTitle, setRoomTitle] = useState("");
@@ -107,14 +103,24 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const resolvedVideo = useMemo<SuggestedVideo | null>(() => {
     if (pickedId) {
       const picked = SUGGESTIONS.find((item) => item.videoId === pickedId);
-      if (picked) return picked;
+      if (picked) {
+        return {
+          videoId: picked.videoId,
+          title: t(picked.titleKey),
+          channelTitle: t(picked.channelKey),
+        };
+      }
     }
     const id = parseYouTubeId(videoUrl);
     if (id) {
-      return { videoId: id, title: "Video từ YouTube", channelTitle: "Link bạn dán" };
+      return {
+        videoId: id,
+        title: t("onboard.pastedTitle"),
+        channelTitle: t("onboard.pastedChannel"),
+      };
     }
     return null;
-  }, [pickedId, videoUrl]);
+  }, [pickedId, videoUrl, t]);
 
   const previewId = pickedId ?? parseYouTubeId(videoUrl);
   const videoTyped = videoUrl.trim().length > 0;
@@ -122,13 +128,11 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   function validateTitle(onBlur = false): FieldError[] {
     const value = roomTitle.trim();
     if (value.length === 0) {
-      return onBlur
-        ? []
-        : [{ field: "room-title", message: "Nhập tên rạp để cả hội nhận ra phòng." }];
+      return onBlur ? [] : [{ field: "room-title", message: t("onboard.errTitleRequired") }];
     }
     if (value.length < TITLE_MIN) {
       return [
-        { field: "room-title", message: `Tên rạp cần ít nhất ${TITLE_MIN} ký tự.` },
+        { field: "room-title", message: t("onboard.errTitleShort", { min: TITLE_MIN }) },
       ];
     }
     return [];
@@ -137,13 +141,8 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   function validateVideo(): FieldError[] {
     if (resolvedVideo) return [];
     return videoTyped
-      ? [
-          {
-            field: "video",
-            message: "Link chưa đúng dạng YouTube. Dán link youtube.com/watch?v=… hoặc youtu.be/…",
-          },
-        ]
-      : [{ field: "video", message: "Chọn một video gợi ý hoặc dán link YouTube." }];
+      ? [{ field: "video", message: t("onboard.errLink") }]
+      : [{ field: "video", message: t("onboard.errVideoRequired") }];
   }
 
   function focusField(field: FieldKey) {
@@ -156,7 +155,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     const setup: RoomSetup = {
       code: generateRoomCode(),
       title: roomTitle.trim(),
-      hostName: hostName.trim() || "Bạn",
+      hostName: hostName.trim() || t("common.you"),
       videoId: resolvedVideo.videoId,
       videoTitle: resolvedVideo.title,
       channelTitle: resolvedVideo.channelTitle,
@@ -218,7 +217,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     try {
       await navigator.share({
         title: created.title,
-        text: `Vào rạp "${created.title}" xem cùng mình nhé!`,
+        text: t("onboard.shareText", { title: created.title }),
         url: shareUrl,
       });
     } catch {
@@ -231,7 +230,12 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   }, [errors]);
 
   const stepIndex = STEP_ORDER.indexOf(step);
-  const primaryLabel = step === "name" ? "Tiếp tục" : step === "video" ? "Tạo rạp" : "Vào rạp";
+  const primaryLabel =
+    step === "name"
+      ? t("common.next")
+      : step === "video"
+        ? t("onboard.ctaCreate")
+        : t("onboard.ctaEnter");
 
   return (
     <dialog
@@ -257,15 +261,15 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
               <BrandMark />
             </span>
             <span>
-              <span className="onboard__brand-name">Rạp Nhà</span>
-              <span className="onboard__brand-sub">Tạo rạp trong 3 bước</span>
+              <span className="onboard__brand-name">{t("brand.name")}</span>
+              <span className="onboard__brand-sub">{t("onboard.brandSub")}</span>
             </span>
           </span>
           <button
             type="button"
             className="onboard__close"
             onClick={onClose}
-            aria-label="Đóng và xem rạp demo"
+            aria-label={t("onboard.close")}
           >
             <X size={18} aria-hidden="true" />
           </button>
@@ -284,7 +288,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                 <span className="onboard__step-dot" aria-hidden="true">
                   {state === "done" ? <Check size={11} strokeWidth={3} /> : index + 1}
                 </span>
-                <span className="onboard__step-label">{STEP_INDICATOR[item]}</span>
+                <span className="onboard__step-label">{t(STEP_INDICATOR[item])}</span>
               </li>
             );
           })}
@@ -295,7 +299,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
             <div className="onboard__error" role="alert" tabIndex={-1} ref={summaryRef}>
               <p className="onboard__error-title">
                 <TriangleAlert size={13} aria-hidden="true" />
-                Còn {errors.length} mục cần sửa
+                {t("onboard.errorsCount", { count: errors.length })}
               </p>
               <ul>
                 {errors.map((error) => (
@@ -317,17 +321,15 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
           {step === "name" ? (
             <>
-              <span className="onboard__eyebrow">{STEP_EYEBROW.name}</span>
+              <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 1 })}</span>
               <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
-                Rạp của bạn tên gì?
+                {t("onboard.nameTitle")}
               </h2>
-              <p className="onboard__lead">
-                Cả hội sẽ thấy tên này ở đầu rạp. Chọn một cái tên dễ gọi khi rủ bạn bè.
-              </p>
+              <p className="onboard__lead">{t("onboard.nameLead")}</p>
 
               <div className="field">
                 <label className="field__label" htmlFor="room-title">
-                  Tên rạp
+                  {t("onboard.roomLabel")}
                 </label>
                 <input
                   id="room-title"
@@ -336,7 +338,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                   type="text"
                   value={roomTitle}
                   maxLength={TITLE_MAX}
-                  placeholder="Đêm phim của hội mình"
+                  placeholder={t("onboard.roomPlaceholder")}
                   autoComplete="off"
                   aria-invalid={errors.some((error) => error.field === "room-title")}
                   aria-describedby="room-title-hint"
@@ -351,13 +353,18 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                   }}
                 />
                 <p className="hint" id="room-title-hint">
-                  {TITLE_MIN}–{TITLE_MAX} ký tự. Còn {TITLE_MAX - roomTitle.length} ký tự.
+                  {t("onboard.roomHint", {
+                    min: TITLE_MIN,
+                    max: TITLE_MAX,
+                    left: TITLE_MAX - roomTitle.length,
+                  })}
                 </p>
               </div>
 
               <div className="field">
                 <label className="field__label" htmlFor="room-host">
-                  Tên của bạn <span className="field__optional">không bắt buộc</span>
+                  {t("onboard.hostLabel")}{" "}
+                  <span className="field__optional">{t("onboard.optional")}</span>
                 </label>
                 <input
                   id="room-host"
@@ -365,28 +372,26 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                   type="text"
                   value={hostName}
                   maxLength={16}
-                  placeholder="Bạn"
+                  placeholder={t("onboard.hostPlaceholder")}
                   autoComplete="nickname"
                   onChange={(event) => setHostName(event.target.value)}
                 />
-                <p className="hint">Hiện trên avatar và trong khung chat. Mặc định là “Bạn”.</p>
+                <p className="hint">{t("onboard.hostHint")}</p>
               </div>
             </>
           ) : null}
 
           {step === "video" ? (
             <>
-              <span className="onboard__eyebrow">{STEP_EYEBROW.video}</span>
+              <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 2 })}</span>
               <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
-                Cả rạp xem gì tối nay?
+                {t("onboard.videoTitle")}
               </h2>
-              <p className="onboard__lead">
-                Dán link video hoặc livestream YouTube, hoặc chọn một gợi ý bên dưới.
-              </p>
+              <p className="onboard__lead">{t("onboard.videoLead")}</p>
 
               <div className="field">
                 <label className="field__label" htmlFor="video-url">
-                  Link YouTube
+                  {t("onboard.linkLabel")}
                 </label>
                 <input
                   id="video-url"
@@ -406,7 +411,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                   }}
                 />
                 <p className="hint" id="video-url-hint">
-                  Hỗ trợ youtube.com/watch, youtu.be, youtube.com/live và /shorts.
+                  {t("onboard.linkHint")}
                 </p>
               </div>
 
@@ -421,16 +426,14 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                     className="onboard__preview-thumb"
                   />
                   <span className="onboard__preview-text">
-                    <strong>Đã nhận diện video</strong>
-                    <span>
-                      Mã video {previewId} — cả rạp sẽ cùng xem khi bạn bấm “Tạo rạp”.
-                    </span>
+                    <strong>{t("onboard.detected")}</strong>
+                    <span>{t("onboard.detectedDesc", { id: previewId })}</span>
                   </span>
                 </div>
               ) : null}
 
               <fieldset className="onboard__fieldset">
-                <legend className="field__label">Hoặc chọn gợi ý</legend>
+                <legend className="field__label">{t("onboard.suggestLabel")}</legend>
                 <div className="video-options">
                   {SUGGESTIONS.map((item) => (
                     <label className="video-option" key={item.videoId}>
@@ -454,8 +457,8 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                         className="video-option__thumb"
                       />
                       <span className="video-option__main">
-                        <span className="video-option__title">{item.title}</span>
-                        <span className="video-option__meta">{item.channelTitle}</span>
+                        <span className="video-option__title">{t(item.titleKey)}</span>
+                        <span className="video-option__meta">{t(item.channelKey)}</span>
                       </span>
                       <span className="video-option__tick" aria-hidden="true">
                         <Check size={12} strokeWidth={3} />
@@ -469,32 +472,30 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
           {step === "share" && created ? (
             <>
-              <span className="onboard__eyebrow">{STEP_EYEBROW.share}</span>
+              <span className="onboard__eyebrow">{t("onboard.stepOf", { current: 3 })}</span>
               <h2 className="onboard__title" tabIndex={-1} ref={headingRef} id={headingId}>
-                Rạp đã sẵn sàng
+                {t("onboard.shareTitle")}
               </h2>
-              <p className="onboard__lead">
-                Gửi link này cho bạn bè. Họ mở là vào thẳng rạp, chọn ghế và xem cùng bạn.
-              </p>
+              <p className="onboard__lead">{t("onboard.shareLead")}</p>
 
               <div className="onboard__summary">
                 <div className="onboard__summary-row">
-                  <span className="onboard__summary-key">Tên rạp</span>
+                  <span className="onboard__summary-key">{t("onboard.shareRoomName")}</span>
                   <span>{created.title}</span>
                 </div>
                 <div className="onboard__summary-row">
-                  <span className="onboard__summary-key">Mã phòng</span>
+                  <span className="onboard__summary-key">{t("onboard.shareRoomCode")}</span>
                   <span className="onboard__summary-code">{created.code}</span>
                 </div>
                 <div className="onboard__summary-row">
-                  <span className="onboard__summary-key">Đang chiếu</span>
+                  <span className="onboard__summary-key">{t("onboard.shareNowShowing")}</span>
                   <span>{created.videoTitle}</span>
                 </div>
               </div>
 
               <div className="field">
                 <label className="field__label" htmlFor="share-url">
-                  Link mời
+                  {t("onboard.shareLinkLabel")}
                 </label>
                 <div className="share-box">
                   <input
@@ -513,15 +514,13 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                     ) : (
                       <Copy size={15} aria-hidden="true" />
                     )}
-                    {copied ? "Đã sao chép" : "Sao chép"}
+                    {copied ? t("common.copied") : t("common.copy")}
                   </button>
                 </div>
                 <p className="share-status" id="share-status" role="status">
-                  {copied ? "Đã sao chép link mời vào bộ nhớ tạm." : ""}
+                  {copied ? t("onboard.shareCopied") : ""}
                   {copyBlocked ? (
-                    <span className="share-status--warn">
-                      Trình duyệt chặn sao chép — link đã được chọn, nhấn Ctrl+C để lấy.
-                    </span>
+                    <span className="share-status--warn">{t("onboard.shareBlocked")}</span>
                   ) : null}
                 </p>
               </div>
@@ -529,13 +528,13 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
               {canShare ? (
                 <button type="button" className="btn btn-gold btn-block" onClick={shareLink}>
                   <Share2 size={15} aria-hidden="true" />
-                  Chia sẻ qua ứng dụng khác
+                  {t("onboard.shareNative")}
                 </button>
               ) : null}
 
               <p className="hint onboard__share-hint">
                 <Link2 size={13} aria-hidden="true" />
-                Ai có link đều vào được rạp này. Bạn có thể đặt mật khẩu ở Phase 2.
+                {t("onboard.shareHint")}
               </p>
             </>
           ) : null}
@@ -545,11 +544,11 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
           {step !== "name" ? (
             <button type="button" className="btn btn-ghost" onClick={goBack}>
               <ArrowLeft size={15} aria-hidden="true" />
-              Quay lại
+              {t("common.back")}
             </button>
           ) : (
             <button type="button" className="btn btn-ghost" onClick={onClose}>
-              Xem rạp demo
+              {t("onboard.demo")}
             </button>
           )}
           <span className="onboard__foot-spacer" />

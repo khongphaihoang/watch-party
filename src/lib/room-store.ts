@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { t } from "./i18n";
 import { createMockRoom, DEMO_VIDEO_ID, VIEWER_ID } from "./mock-room";
 import { applyRoomSetup, loadRoomSetup } from "./room-setup";
 import { parseYouTubeId } from "./youtube";
@@ -118,7 +119,28 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   bootstrap: (code) => {
     const base = createMockRoom(code);
     const setup = loadRoomSetup(code);
-    const room = setup ? applyRoomSetup(base, setup) : base;
+    let room = setup ? applyRoomSetup(base, setup) : base;
+
+    // Đọc session user hiện tại nếu có để gán tên lên ghế
+    try {
+      if (typeof window !== "undefined") {
+        const rawUser = localStorage.getItem("rap-chieu:auth-session");
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          if (user?.displayName) {
+            const members = room.members.map((m) =>
+              m.id === room.viewerId
+                ? { ...m, displayName: user.displayName, shirtColor: user.avatarColor || m.shirtColor }
+                : m,
+            );
+            room = { ...room, members };
+          }
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi đọc session
+    }
+
     const seats = applySeatStatuses(buildSeatGrid(), room.members, room.viewerId);
     set({ room, seats, bootstrapped: true, unread: 2 });
   },
@@ -167,7 +189,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   toggleSound: () =>
     set((state) => {
       const soundOn = !state.soundOn;
-      get().pushToast(soundOn ? "Đã bật âm thanh" : "Đã tắt âm thanh", "info");
+      get().pushToast(t(soundOn ? "toast.soundOn" : "toast.soundOff"), "info");
       return { soundOn };
     }),
   setVolume: (volume) => set({ volume: Math.min(100, Math.max(0, volume)) }),
@@ -189,11 +211,11 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const occupant = seats.find((seat) => seat.id === target)?.memberId;
 
     if (occupant && occupant !== room.viewerId) {
-      get().pushToast("Ghế này đã có người ngồi. Chọn ghế khác nhé.", "warn");
+      get().pushToast(t("toast.seatTaken"), "warn");
       return;
     }
     if (occupant === room.viewerId) {
-      get().pushToast("Bạn đang ngồi ở ghế này rồi.", "info");
+      get().pushToast(t("toast.seatAlreadyYours"), "info");
       return;
     }
 
@@ -204,7 +226,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       room: { ...room, members },
       seats: applySeatStatuses(seats, members, room.viewerId),
     });
-    get().pushToast(`Đã chọn ghế hàng ${row + 1}, số ${col + 1}.`, "ok");
+    get().pushToast(t("toast.seatChosen", { row: row + 1, col: col + 1 }), "ok");
   },
 
   sendMessage: (body) => {
@@ -215,7 +237,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const message: ChatMessage = {
       id: `msg-local-${Date.now()}`,
       memberId: room.viewerId,
-      displayName: viewer?.displayName || "Bạn",
+      displayName: viewer?.displayName || t("common.you"),
       kind: "text",
       body: text.slice(0, 200),
       createdAt: Date.now(),
@@ -236,7 +258,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         skipVote: { ...room.skipVote, voted, yes: Math.max(0, yes) },
       },
     });
-    get().pushToast(voted ? "Đã bỏ phiếu bỏ qua video" : "Đã rút phiếu bỏ qua", "info");
+    get().pushToast(t(voted ? "toast.skipVoted" : "toast.skipWithdrawn"), "info");
   },
 
   enqueue: (url) => {
@@ -244,21 +266,21 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     if (!room) return false;
     const videoId = parseYouTubeId(url);
     if (!videoId) {
-      get().pushToast("Liên kết YouTube chưa hợp lệ. Dán link dạng youtube.com/watch?v=…", "danger");
+      get().pushToast(t("toast.invalidLink"), "danger");
       return false;
     }
     const viewer = room.members.find((member) => member.id === room.viewerId);
     const item: QueueItem = {
       id: `q-local-${Date.now()}`,
       videoId,
-      title: "Video vừa được gửi vào rạp",
-      channelTitle: "Liên kết bạn dán",
+      title: t("store.placeholderVideoTitle"),
+      channelTitle: t("store.placeholderChannel"),
       durationSec: 0,
-      addedBy: viewer?.displayName || "Bạn",
+      addedBy: viewer?.displayName || t("common.you"),
       isLive: false,
     };
     set({ room: { ...room, queue: [...room.queue, item] } });
-    get().pushToast("Đã thêm video vào hàng chờ.", "ok");
+    get().pushToast(t("toast.videoAdded"), "ok");
     return true;
   },
 
@@ -272,7 +294,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const { room } = get();
     if (!room) return;
     if (room.queue.length === 0) {
-      get().pushToast("Hàng chờ đang trống. Gửi một video trước nhé.", "warn");
+      get().pushToast(t("toast.queueEmpty"), "warn");
       return;
     }
     const [next, ...rest] = room.queue;
@@ -286,7 +308,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
           videoId: next.videoId,
           title: next.title,
           channelTitle: next.channelTitle,
-          description: "Suất chiếu vừa bắt đầu. Cả rạp cùng xem nhé.",
+          description: t("store.showStarted"),
           durationSec: next.durationSec,
           isLive: next.isLive,
           state: "playing",
@@ -297,7 +319,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         skipVote: { videoId: next.videoId, yes: 0, total: room.members.length, voted: false },
       },
     });
-    get().pushToast("Đang chiếu video tiếp theo.", "ok");
+    get().pushToast(t("toast.playingNext"), "ok");
   },
 
   setUiStatus: (ui) => {
@@ -327,7 +349,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
               videoId: next.videoId,
               title: next.title,
               channelTitle: next.channelTitle,
-              description: "Suất chiếu vừa bắt đầu. Cả rạp cùng xem nhé.",
+              description: t("store.showStarted"),
               durationSec: next.durationSec,
               isLive: next.isLive,
               state,

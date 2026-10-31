@@ -8,6 +8,7 @@ import { AuthModal } from "./AuthModal";
 export function AuthGate() {
   const { user, isAuthenticated, isGuest, isModalOpen, openModal } = useAuthStore();
   const updateViewerProfile = useRoomStore((state) => state.updateViewerProfile);
+  const bootstrapped = useRoomStore((state) => state.bootstrapped);
 
   // Khi tải trang, nếu chưa đăng nhập và chưa bỏ qua, tự động bật popup đăng nhập/đăng ký
   useEffect(() => {
@@ -18,10 +19,11 @@ export function AuthGate() {
 
   // Đồng bộ thông tin người dùng vào phòng chiếu
   useEffect(() => {
-    if (user) {
+    if (user && bootstrapped) {
       updateViewerProfile(user.displayName, user.avatarColor);
     }
-  }, [user, updateViewerProfile]);
+  }, [user, bootstrapped, updateViewerProfile]);
 
   return <AuthModal />;
 }
+
