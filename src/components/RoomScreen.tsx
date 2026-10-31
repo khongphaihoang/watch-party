@@ -78,8 +78,10 @@ export function RoomScreen({ code }: { code: string }) {
   const [chromeIdle, setChromeIdle] = useState(false);
 
   useEffect(() => {
-    if (!bootstrapped) bootstrap(code);
-  }, [bootstrapped, bootstrap, code]);
+    // Điều hướng client-side từ `/` sang `/room/[code]` không reset store,
+    // nên phải bootstrap lại khi mã phòng khác mã đang mở.
+    if (!bootstrapped || room?.code !== code) bootstrap(code);
+  }, [bootstrapped, bootstrap, code, room?.code]);
 
   useEffect(() => {
     let frame = 0;

@@ -1,17 +1,23 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   Coins,
   Copy,
   Info,
+  LogIn,
+  LogOut,
   Maximize2,
   Minimize2,
   Settings2,
+  Shirt,
   Shrink,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { formatCount, initials } from "@/lib/format";
 import type { PanelId, RoomState } from "@/lib/room-types";
+import { useAuthStore } from "@/lib/auth-store";
 
 export function BrandMark() {
   return (
@@ -52,10 +58,30 @@ export function RoomTopBar({
   onToggleFocus: () => void;
   onOpenPanel: (panel: PanelId) => void;
 }) {
+  const { user, isAuthenticated, openModal, logout } = useAuthStore();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const isLive = room.lifecycle === "live";
   const occupied = room.members.length;
   const stack = room.members.slice(0, 4);
   const restCount = Math.max(0, occupied - stack.length);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [menuOpen]);
+
+  const displayName = user ? user.displayName : "Khách";
+  const avatarBg = user ? user.avatarColor : "#D6E87F";
 
   return (
     <header className="topbar">
@@ -111,7 +137,7 @@ export function RoomTopBar({
       <div className="topbar__actions">
         <span className="points topbar__aux" data-tip="Điểm thưởng của bạn">
           <Coins size={13} aria-hidden="true" />
-          {formatCount(room.walletPoints)}
+          {formatCount(user ? user.points : room.walletPoints)}
         </span>
         <button
           type="button"
@@ -163,15 +189,82 @@ export function RoomTopBar({
         >
           {focus ? <Shrink size={18} aria-hidden="true" /> : null}
         </button>
-        <button
-          type="button"
-          className="account topbar__aux"
-          onClick={() => onOpenPanel("wardrobe")}
-          aria-label="Tài khoản và tủ đồ"
-          data-tip="Tài khoản của bạn"
-        >
-          {initials("Bạn")}
-        </button>
+
+        {/* Khu vực Tài khoản / Đăng nhập */}
+        {isAuthenticated && user ? (
+          <div className="topbar-user-menu" ref={menuRef}>
+            <button
+              type="button"
+              className="account topbar__aux"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label={`Tài khoản của ${displayName}`}
+              data-tip={displayName}
+              style={{ background: avatarBg }}
+            >
+              {initials(displayName)}
+            </button>
+
+            {menuOpen && (
+              <div className="user-dropdown" role="menu">
+                <div className="user-dropdown__header">
+                  <div
+                    className="user-dropdown__avatar"
+                    style={{ background: avatarBg }}
+                    aria-hidden="true"
+                  >
+                    {initials(displayName)}
+                  </div>
+                  <div className="user-dropdown__info">
+                    <strong className="user-dropdown__name">{displayName}</strong>
+                    <span className="user-dropdown__email">{user.email}</span>
+                    <span className="user-dropdown__badge">
+                      <Sparkles size={11} aria-hidden="true" />
+                      {user.role === "vip" ? "Khán giả VIP" : "Khán giả tiêu chuẩn"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="user-dropdown__divider" />
+
+                <button
+                  type="button"
+                  className="user-dropdown__item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenPanel("wardrobe");
+                  }}
+                >
+                  <Shirt size={15} aria-hidden="true" />
+                  <span>Tủ đồ & Đổi Avatar</span>
+                </button>
+
+                <div className="user-dropdown__divider" />
+
+                <button
+                  type="button"
+                  className="user-dropdown__item user-dropdown__item--danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logout();
+                  }}
+                >
+                  <LogOut size={15} aria-hidden="true" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="topbar-login-btn"
+            onClick={() => openModal("login")}
+            aria-label="Đăng nhập hoặc đăng ký"
+          >
+            <LogIn size={15} aria-hidden="true" />
+            <span>Đăng nhập</span>
+          </button>
+        )}
       </div>
     </header>
   );

@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 import { createMockRoom, DEMO_VIDEO_ID, VIEWER_ID } from "./mock-room";
+import { applyRoomSetup, loadRoomSetup } from "./room-setup";
+import { parseYouTubeId } from "./youtube";
 import type {
   ChatMessage,
   PanelId,
@@ -76,6 +78,7 @@ interface RoomStore {
   playNext: () => void;
   setUiStatus: (ui: UiStatus) => void;
   setPlaybackState: (state: PlaybackState) => void;
+  updateViewerProfile: (displayName: string, shirtColor?: string) => void;
 }
 
 let toastSeq = 0;
@@ -113,7 +116,9 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   demoVoice: true,
 
   bootstrap: (code) => {
-    const room = createMockRoom(code);
+    const base = createMockRoom(code);
+    const setup = loadRoomSetup(code);
+    const room = setup ? applyRoomSetup(base, setup) : base;
     const seats = applySeatStatuses(buildSeatGrid(), room.members, room.viewerId);
     set({ room, seats, bootstrapped: true, unread: 2 });
   },
@@ -206,10 +211,11 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const text = body.trim();
     const { room } = get();
     if (!room || text.length === 0) return;
+    const viewer = room.members.find((member) => member.id === room.viewerId);
     const message: ChatMessage = {
       id: `msg-local-${Date.now()}`,
       memberId: room.viewerId,
-      displayName: "Bạn",
+      displayName: viewer?.displayName || "Bạn",
       kind: "text",
       body: text.slice(0, 200),
       createdAt: Date.now(),
@@ -236,20 +242,19 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   enqueue: (url) => {
     const { room } = get();
     if (!room) return false;
-    const match = url.match(
-      /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/|shorts\/))([A-Za-z0-9_-]{11})/,
-    );
-    if (!match) {
+    const videoId = parseYouTubeId(url);
+    if (!videoId) {
       get().pushToast("Liên kết YouTube chưa hợp lệ. Dán link dạng youtube.com/watch?v=…", "danger");
       return false;
     }
+    const viewer = room.members.find((member) => member.id === room.viewerId);
     const item: QueueItem = {
       id: `q-local-${Date.now()}`,
-      videoId: match[1],
+      videoId,
       title: "Video vừa được gửi vào rạp",
       channelTitle: "Liên kết bạn dán",
       durationSec: 0,
-      addedBy: "Bạn",
+      addedBy: viewer?.displayName || "Bạn",
       isLive: false,
     };
     set({ room: { ...room, queue: [...room.queue, item] } });
@@ -345,6 +350,24 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
           startedAt: state === "playing" ? now : source.startedAt,
         },
       },
+    });
+  },
+
+  updateViewerProfile: (displayName, shirtColor) => {
+    const { room, seats } = get();
+    if (!room) return;
+    const members = room.members.map((member) =>
+      member.id === room.viewerId
+        ? {
+            ...member,
+            displayName: displayName.trim() || member.displayName,
+            shirtColor: shirtColor ?? member.shirtColor,
+          }
+        : member,
+    );
+    set({
+      room: { ...room, members },
+      seats: applySeatStatuses(seats, members, room.viewerId),
     });
   },
 }));

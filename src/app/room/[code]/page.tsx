@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { RoomScreen } from "@/components/RoomScreen";
 
 export async function generateMetadata({
@@ -18,5 +19,10 @@ export default async function RoomPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  return <RoomScreen code={code.toUpperCase()} />;
+  return (
+    <>
+      <RoomScreen code={code.toUpperCase()} />
+      <AuthGate />
+    </>
+  );
 }

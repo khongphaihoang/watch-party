@@ -76,7 +76,9 @@ export function NowPlayingPanel({
 
         <div className="now-playing__meta">
           <span>{subtitle}</span>
-          {playing && !playing.isLive ? <span>· {formatDuration(duration)}</span> : null}
+          {playing && !playing.isLive && duration > 0 ? (
+            <span>· {formatDuration(duration)}</span>
+          ) : null}
         </div>
 
         <p className="now-playing__desc">{description}</p>
@@ -94,7 +96,9 @@ export function NowPlayingPanel({
           </div>
           <div className="progress__labels" style={{ marginTop: 6 }}>
             <span>{playing?.isLive ? "Trực tiếp" : formatDuration(position)}</span>
-            <span>{playing?.isLive ? "—" : formatDuration(duration)}</span>
+            <span>
+              {playing?.isLive || duration <= 0 ? "—" : formatDuration(duration)}
+            </span>
           </div>
         </div>
 
