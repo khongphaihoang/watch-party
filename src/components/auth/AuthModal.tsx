@@ -1,21 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   AlertCircle,
-  CheckCircle2,
-  Clapperboard,
   Eye,
   EyeOff,
-  Film,
-  KeyRound,
   Loader2,
   LogIn,
-  ShieldCheck,
   Ticket,
   User as UserIcon,
-  UserPlus,
-  X,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useT } from "@/lib/i18n";
@@ -29,36 +22,35 @@ interface FormFieldErrors {
   confirmPassword?: string;
 }
 
-export function AuthModal() {
-  const {
-    isModalOpen,
-    activeTab,
-    loading,
-    errorMessage,
-    setActiveTab,
-    clearError,
-    login,
-    register,
-    continueAsGuest,
-  } = useAuthStore();
+const USERNAME_MIN = 3;
+const USERNAME_MAX = 24;
+const DISPLAY_NAME_MIN = 2;
+const PASSWORD_MIN = 8;
 
-  const t = useT();
+export function AuthModal() {
+  const isModalOpen = useAuthStore((state) => state.isModalOpen);
+  const activeTab = useAuthStore((state) => state.activeTab);
+  const loading = useAuthStore((state) => state.loading);
+  const errorMessage = useAuthStore((state) => state.errorMessage);
+  const setActiveTab = useAuthStore((state) => state.setActiveTab);
+  const clearError = useAuthStore((state) => state.clearError);
+  const login = useAuthStore((state) => state.login);
+  const register = useAuthStore((state) => state.register);
+
   const updateViewerProfile = useRoomStore((state) => state.updateViewerProfile);
   const pushToast = useRoomStore((state) => state.pushToast);
 
+  const t = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const usernameInputRef = useRef<HTMLInputElement>(null);
   const regUsernameInputRef = useRef<HTMLInputElement>(null);
-
   const headingId = useId();
 
-  // Login form state
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-  // Register form state
   const [regUsername, setRegUsername] = useState("");
   const [regDisplayName, setRegDisplayName] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -67,62 +59,65 @@ export function AuthModal() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({});
-  const [justSuccess, setJustSuccess] = useState(false);
 
-  // Mở/đóng dialog native
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-
+    if (isModalOpen && !dialog.open) {
+      dialog.showModal();
+    } else if (!isModalOpen && dialog.open) {
+      dialog.close();
+    }
     if (isModalOpen) {
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-      window.setTimeout(() => {
-        if (activeTab === "login") {
-          usernameInputRef.current?.focus();
-        } else {
-          regUsernameInputRef.current?.focus();
-        }
+      const timer = window.setTimeout(() => {
+        const root = dialogRef.current;
+        // Không cướp focus nếu người dùng đã bấm vào một ô trong hộp thoại.
+        const active = document.activeElement;
+        const typingInside =
+          root !== null &&
+          active instanceof HTMLElement &&
+          active !== root &&
+          root.contains(active) &&
+          (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+        if (typingInside) return;
+        if (activeTab === "login") usernameInputRef.current?.focus();
+        else regUsernameInputRef.current?.focus();
       }, 50);
-    } else {
-      if (dialog.open) {
-        dialog.close();
-      }
+      return () => window.clearTimeout(timer);
     }
   }, [isModalOpen, activeTab]);
 
-  function validateLogin(): boolean {
+  const validateLogin = useCallback((): boolean => {
     const errors: FormFieldErrors = {};
-    if (!loginUsername.trim()) {
-      errors.username = t("auth.errUsernameRequired");
-    }
-    if (!loginPassword) {
-      errors.password = t("auth.errPasswordRequired");
-    }
+    if (!loginUsername.trim()) errors.username = t("auth.errUsernameRequired");
+    if (!loginPassword) errors.password = t("auth.errPasswordRequired");
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
-  }
+  }, [loginPassword, loginUsername, t]);
 
-  function validateRegister(): boolean {
+  const validateRegister = useCallback((): boolean => {
     const errors: FormFieldErrors = {};
-    const u = regUsername.trim();
-    if (!u) {
+    const username = regUsername.trim();
+    if (!username) {
       errors.username = t("auth.errUsernameRequired");
-    } else if (u.length < 3) {
+    } else if (username.length < USERNAME_MIN) {
       errors.username = t("auth.errUsernameShort");
+    } else if (username.length > USERNAME_MAX) {
+      errors.username = t("auth.errUsernameLong", { max: USERNAME_MAX });
+    } else if (!/^[A-Za-z0-9._-]+$/.test(username)) {
+      errors.username = t("auth.errUsernameChars");
     }
 
-    const d = regDisplayName.trim();
-    if (!d) {
+    const displayName = regDisplayName.trim();
+    if (!displayName) {
       errors.displayName = t("auth.errDisplayRequired");
-    } else if (d.length < 2) {
+    } else if (displayName.length < DISPLAY_NAME_MIN) {
       errors.displayName = t("auth.errDisplayShort");
     }
 
     if (!regPassword) {
       errors.password = t("auth.errPasswordRequired");
-    } else if (regPassword.length < 6) {
+    } else if (regPassword.length < PASSWORD_MIN) {
       errors.password = t("auth.errPasswordShort");
     }
 
@@ -134,7 +129,7 @@ export function AuthModal() {
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
-  }
+  }, [regConfirmPassword, regDisplayName, regPassword, regUsername, t]);
 
   async function handleLoginSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -146,18 +141,14 @@ export function AuthModal() {
       password: loginPassword,
       rememberMe,
     });
+    if (!ok) return;
 
-    if (ok) {
-      setJustSuccess(true);
-      const user = useAuthStore.getState().user;
-      if (user) {
-        updateViewerProfile(user.displayName, user.avatarColor);
-        pushToast(t("auth.toastWelcomeBack", { name: user.displayName }), "ok");
-      }
-      setTimeout(() => {
-        setJustSuccess(false);
-      }, 800);
+    const user = useAuthStore.getState().user;
+    if (user) {
+      updateViewerProfile(user.displayName, user.shirtColor);
+      pushToast(t("auth.toastWelcomeBack", { name: user.displayName }), "ok");
     }
+    setLoginPassword("");
   }
 
   async function handleRegisterSubmit(event: React.FormEvent) {
@@ -171,23 +162,21 @@ export function AuthModal() {
       password: regPassword,
       confirmPassword: regConfirmPassword,
     });
+    if (!ok) return;
 
-    if (ok) {
-      setJustSuccess(true);
-      const user = useAuthStore.getState().user;
-      if (user) {
-        updateViewerProfile(user.displayName, user.avatarColor);
-        pushToast(t("auth.toastRegistered", { name: user.displayName }), "ok");
-      }
-      setTimeout(() => {
-        setJustSuccess(false);
-      }, 800);
+    const user = useAuthStore.getState().user;
+    if (user) {
+      updateViewerProfile(user.displayName, user.shirtColor);
+      pushToast(t("auth.toastRegistered", { name: user.displayName }), "ok");
     }
+    setRegPassword("");
+    setRegConfirmPassword("");
   }
 
-  function handleGuestClick() {
-    continueAsGuest();
-    pushToast(t("auth.toastGuest"), "info");
+  function switchTab(tab: "login" | "register") {
+    setActiveTab(tab);
+    setFieldErrors({});
+    clearError();
   }
 
   if (!isModalOpen) return null;
@@ -197,24 +186,11 @@ export function AuthModal() {
       ref={dialogRef}
       className="auth-dialog"
       aria-labelledby={headingId}
-      onCancel={(e) => {
-        e.preventDefault();
-        handleGuestClick();
-      }}
+      // Rạp bắt buộc tài khoản: không có nút đóng, `Esc` cũng không đóng được —
+      // chỉ đăng nhập hoặc đăng ký mới đi tiếp.
+      onCancel={(event) => event.preventDefault()}
     >
       <div className="auth-dialog__inner">
-        {/* Nút đóng modal */}
-        <button
-          type="button"
-          className="auth-dialog__close"
-          onClick={handleGuestClick}
-          aria-label={t("auth.closeAria")}
-          title={t("auth.closeTitle")}
-        >
-          <X size={18} aria-hidden="true" />
-        </button>
-
-        {/* Header thương hiệu rạp chiếu */}
         <header className="auth-dialog__head">
           <div className="auth-dialog__badge">
             <span className="brand__mark" aria-hidden="true">
@@ -227,23 +203,16 @@ export function AuthModal() {
             {activeTab === "login" ? t("auth.loginTitle") : t("auth.registerTitle")}
           </h2>
           <p className="auth-dialog__subtitle">
-            {activeTab === "login"
-              ? t("auth.loginSubtitle")
-              : t("auth.registerSubtitle")}
+            {activeTab === "login" ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}
           </p>
 
-          {/* Tab Switcher */}
           <div className="auth-tabs" role="tablist" aria-label={t("auth.tabsLabel")}>
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === "login"}
               className={`auth-tab ${activeTab === "login" ? "auth-tab--active" : ""}`}
-              onClick={() => {
-                setActiveTab("login");
-                setFieldErrors({});
-                clearError();
-              }}
+              onClick={() => switchTab("login")}
             >
               <LogIn size={15} aria-hidden="true" />
               <span>{t("topbar.login")}</span>
@@ -253,11 +222,7 @@ export function AuthModal() {
               role="tab"
               aria-selected={activeTab === "register"}
               className={`auth-tab ${activeTab === "register" ? "auth-tab--active" : ""}`}
-              onClick={() => {
-                setActiveTab("register");
-                setFieldErrors({});
-                clearError();
-              }}
+              onClick={() => switchTab("register")}
             >
               <Ticket size={15} aria-hidden="true" />
               <span>{t("auth.registerTab")}</span>
@@ -265,7 +230,6 @@ export function AuthModal() {
           </div>
         </header>
 
-        {/* Global Error Alert */}
         {errorMessage ? (
           <div className="auth-alert auth-alert--error" role="alert">
             <AlertCircle size={16} aria-hidden="true" />
@@ -273,15 +237,15 @@ export function AuthModal() {
           </div>
         ) : null}
 
-        {/* TAB 1: ĐĂNG NHẬP */}
         {activeTab === "login" ? (
           <form className="auth-form" noValidate onSubmit={handleLoginSubmit}>
-            {/* Field: Tên đăng nhập */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="login-username">
                 {t("auth.username")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.username ? "auth-input-box--error" : ""}`}>
+              <div
+                className={`auth-input-box ${fieldErrors.username ? "auth-input-box--error" : ""}`}
+              >
                 <span className="auth-input-icon" aria-hidden="true">
                   <UserIcon size={16} />
                 </span>
@@ -292,31 +256,32 @@ export function AuthModal() {
                   className="auth-input"
                   placeholder={t("auth.usernamePlaceholder")}
                   autoComplete="username"
+                  maxLength={USERNAME_MAX}
                   value={loginUsername}
-                  onChange={(e) => {
-                    setLoginUsername(e.target.value);
-                    if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: undefined });
+                  onChange={(event) => {
+                    setLoginUsername(event.target.value);
+                    if (fieldErrors.username) {
+                      setFieldErrors({ ...fieldErrors, username: undefined });
+                    }
                   }}
                   aria-invalid={Boolean(fieldErrors.username)}
-                  aria-describedby={fieldErrors.username ? "login-user-err" : undefined}
+                  aria-describedby={fieldErrors.username ? "login-username-error" : undefined}
                 />
               </div>
               {fieldErrors.username ? (
-                <p id="login-user-err" className="auth-field__error">
-                  {fieldErrors.username}
-                </p>
+                <span className="auth-field__error" id="login-username-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.username}
+                </span>
               ) : null}
             </div>
 
-            {/* Field: Mật khẩu (Không có Quên mật khẩu) */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="login-password">
                 {t("auth.password")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.password ? "auth-input-box--error" : ""}`}>
-                <span className="auth-input-icon" aria-hidden="true">
-                  <KeyRound size={16} />
-                </span>
+              <div
+                className={`auth-input-box ${fieldErrors.password ? "auth-input-box--error" : ""}`}
+              >
                 <input
                   id="login-password"
                   type={showLoginPassword ? "text" : "password"}
@@ -324,87 +289,69 @@ export function AuthModal() {
                   placeholder="••••••••"
                   autoComplete="current-password"
                   value={loginPassword}
-                  onChange={(e) => {
-                    setLoginPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
+                  onChange={(event) => {
+                    setLoginPassword(event.target.value);
+                    if (fieldErrors.password) {
+                      setFieldErrors({ ...fieldErrors, password: undefined });
+                    }
                   }}
                   aria-invalid={Boolean(fieldErrors.password)}
-                  aria-describedby={fieldErrors.password ? "login-pwd-err" : undefined}
+                  aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
                 />
                 <button
                   type="button"
                   className="auth-toggle-pwd"
-                  onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  aria-label={showLoginPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-                  tabIndex={-1}
+                  onClick={() => setShowLoginPassword((value) => !value)}
+                  aria-label={
+                    showLoginPassword ? t("auth.hidePassword") : t("auth.showPassword")
+                  }
+                  title={showLoginPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 >
-                  {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showLoginPassword ? (
+                    <EyeOff size={16} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {fieldErrors.password ? (
-                <p id="login-pwd-err" className="auth-field__error">
-                  {fieldErrors.password}
-                </p>
+                <span className="auth-field__error" id="login-password-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.password}
+                </span>
               ) : null}
             </div>
 
-            {/* Checkbox Ghi nhớ đăng nhập */}
             <div className="auth-checkbox-row">
-              <label className="auth-checkbox-label">
+              <label className="auth-checkbox-label" htmlFor="login-remember">
                 <input
+                  id="login-remember"
                   type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="auth-checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
                 />
-                <span>{t("auth.remember")}</span>
+                {t("auth.remember")}
               </label>
             </div>
 
-            {/* Nút Submit Đăng nhập */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary auth-submit-btn"
-            >
+            <button type="submit" className="auth-submit-btn" disabled={loading}>
               {loading ? (
-                <>
-                  <Loader2 size={16} className="auth-spin" aria-hidden="true" />
-                  <span>{t("auth.loggingIn")}</span>
-                </>
-              ) : justSuccess ? (
-                <>
-                  <CheckCircle2 size={16} aria-hidden="true" />
-                  <span>{t("auth.loginSuccess")}</span>
-                </>
+                <Loader2 size={16} className="auth-spin" aria-hidden="true" />
               ) : (
-                <>
-                  <Clapperboard size={16} aria-hidden="true" />
-                  <span>{t("auth.loginSubmit")}</span>
-                </>
+                <LogIn size={16} aria-hidden="true" />
               )}
+              {loading ? t("auth.loggingIn") : t("auth.loginSubmit")}
             </button>
-
-            {/* Link Xem như Khách */}
-            <div className="auth-guest-row">
-              <button
-                type="button"
-                className="auth-link-guest"
-                onClick={handleGuestClick}
-              >
-                {t("auth.guestLink")}
-              </button>
-            </div>
           </form>
         ) : (
-          /* TAB 2: ĐĂNG KÝ VÉ ĐƠN GIẢN */
           <form className="auth-form" noValidate onSubmit={handleRegisterSubmit}>
-            {/* Field 1: Tên đăng nhập */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="reg-username">
                 {t("auth.username")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.username ? "auth-input-box--error" : ""}`}>
+              <div
+                className={`auth-input-box ${fieldErrors.username ? "auth-input-box--error" : ""}`}
+              >
                 <span className="auth-input-icon" aria-hidden="true">
                   <UserIcon size={16} />
                 </span>
@@ -412,70 +359,79 @@ export function AuthModal() {
                   ref={regUsernameInputRef}
                   id="reg-username"
                   type="text"
-                  maxLength={20}
                   className="auth-input"
                   placeholder={t("auth.regUsernamePlaceholder")}
                   autoComplete="username"
+                  maxLength={USERNAME_MAX}
                   value={regUsername}
-                  onChange={(e) => {
-                    setRegUsername(e.target.value);
-                    if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: undefined });
+                  onChange={(event) => {
+                    setRegUsername(event.target.value);
+                    if (fieldErrors.username) {
+                      setFieldErrors({ ...fieldErrors, username: undefined });
+                    }
                   }}
                   aria-invalid={Boolean(fieldErrors.username)}
-                  aria-describedby={fieldErrors.username ? "reg-user-err" : undefined}
+                  aria-describedby={
+                    fieldErrors.username ? "reg-username-error" : "reg-username-hint"
+                  }
                 />
               </div>
               {fieldErrors.username ? (
-                <p id="reg-user-err" className="auth-field__error">
-                  {fieldErrors.username}
-                </p>
+                <span className="auth-field__error" id="reg-username-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.username}
+                </span>
               ) : (
-                <p className="auth-field__hint">{t("auth.regUsernameHint")}</p>
+                <p className="auth-field__hint" id="reg-username-hint">
+                  {t("auth.regUsernameHint")}
+                </p>
               )}
             </div>
 
-            {/* Field 2: Tên hiển thị trên ghế */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="reg-display-name">
                 {t("auth.displayName")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.displayName ? "auth-input-box--error" : ""}`}>
-                <span className="auth-input-icon" aria-hidden="true">
-                  <Ticket size={16} />
-                </span>
+              <div
+                className={`auth-input-box ${fieldErrors.displayName ? "auth-input-box--error" : ""}`}
+              >
                 <input
                   id="reg-display-name"
                   type="text"
-                  maxLength={20}
                   className="auth-input"
                   placeholder={t("auth.displayNamePlaceholder")}
+                  autoComplete="nickname"
+                  maxLength={32}
                   value={regDisplayName}
-                  onChange={(e) => {
-                    setRegDisplayName(e.target.value);
-                    if (fieldErrors.displayName) setFieldErrors({ ...fieldErrors, displayName: undefined });
+                  onChange={(event) => {
+                    setRegDisplayName(event.target.value);
+                    if (fieldErrors.displayName) {
+                      setFieldErrors({ ...fieldErrors, displayName: undefined });
+                    }
                   }}
                   aria-invalid={Boolean(fieldErrors.displayName)}
-                  aria-describedby={fieldErrors.displayName ? "reg-display-err" : undefined}
+                  aria-describedby={
+                    fieldErrors.displayName ? "reg-display-name-error" : "reg-display-name-hint"
+                  }
                 />
               </div>
               {fieldErrors.displayName ? (
-                <p id="reg-display-err" className="auth-field__error">
-                  {fieldErrors.displayName}
-                </p>
+                <span className="auth-field__error" id="reg-display-name-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.displayName}
+                </span>
               ) : (
-                <p className="auth-field__hint">{t("auth.displayNameHint")}</p>
+                <p className="auth-field__hint" id="reg-display-name-hint">
+                  {t("auth.displayNameHint")}
+                </p>
               )}
             </div>
 
-            {/* Field 2: Mật khẩu */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="reg-password">
                 {t("auth.password")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.password ? "auth-input-box--error" : ""}`}>
-                <span className="auth-input-icon" aria-hidden="true">
-                  <KeyRound size={16} />
-                </span>
+              <div
+                className={`auth-input-box ${fieldErrors.password ? "auth-input-box--error" : ""}`}
+              >
                 <input
                   id="reg-password"
                   type={showRegPassword ? "text" : "password"}
@@ -483,39 +439,43 @@ export function AuthModal() {
                   placeholder={t("auth.passwordMinPlaceholder")}
                   autoComplete="new-password"
                   value={regPassword}
-                  onChange={(e) => {
-                    setRegPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
+                  onChange={(event) => {
+                    setRegPassword(event.target.value);
+                    if (fieldErrors.password) {
+                      setFieldErrors({ ...fieldErrors, password: undefined });
+                    }
                   }}
                   aria-invalid={Boolean(fieldErrors.password)}
-                  aria-describedby={fieldErrors.password ? "reg-pwd-err" : undefined}
+                  aria-describedby={fieldErrors.password ? "reg-password-error" : undefined}
                 />
                 <button
                   type="button"
                   className="auth-toggle-pwd"
-                  onClick={() => setShowRegPassword(!showRegPassword)}
+                  onClick={() => setShowRegPassword((value) => !value)}
                   aria-label={showRegPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-                  tabIndex={-1}
+                  title={showRegPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 >
-                  {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showRegPassword ? (
+                    <EyeOff size={16} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {fieldErrors.password ? (
-                <p id="reg-pwd-err" className="auth-field__error">
-                  {fieldErrors.password}
-                </p>
+                <span className="auth-field__error" id="reg-password-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.password}
+                </span>
               ) : null}
             </div>
 
-            {/* Field 3: Xác nhận lại mật khẩu */}
             <div className="auth-field">
               <label className="auth-field__label" htmlFor="reg-confirm-password">
                 {t("auth.confirmPassword")}
               </label>
-              <div className={`auth-input-box ${fieldErrors.confirmPassword ? "auth-input-box--error" : ""}`}>
-                <span className="auth-input-icon" aria-hidden="true">
-                  <ShieldCheck size={16} />
-                </span>
+              <div
+                className={`auth-input-box ${fieldErrors.confirmPassword ? "auth-input-box--error" : ""}`}
+              >
                 <input
                   id="reg-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
@@ -523,73 +483,54 @@ export function AuthModal() {
                   placeholder={t("auth.confirmPlaceholder")}
                   autoComplete="new-password"
                   value={regConfirmPassword}
-                  onChange={(e) => {
-                    setRegConfirmPassword(e.target.value);
+                  onChange={(event) => {
+                    setRegConfirmPassword(event.target.value);
                     if (fieldErrors.confirmPassword) {
                       setFieldErrors({ ...fieldErrors, confirmPassword: undefined });
                     }
                   }}
                   aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                  aria-describedby={fieldErrors.confirmPassword ? "reg-confirm-err" : undefined}
+                  aria-describedby={
+                    fieldErrors.confirmPassword ? "reg-confirm-error" : undefined
+                  }
                 />
                 <button
                   type="button"
                   className="auth-toggle-pwd"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-                  tabIndex={-1}
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  aria-label={
+                    showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")
+                  }
+                  title={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={16} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {fieldErrors.confirmPassword ? (
-                <p id="reg-confirm-err" className="auth-field__error">
-                  {fieldErrors.confirmPassword}
-                </p>
+                <span className="auth-field__error" id="reg-confirm-error" role="alert">
+                  <AlertCircle size={12} aria-hidden="true" /> {fieldErrors.confirmPassword}
+                </span>
               ) : null}
             </div>
 
-            {/* Nút Submit Đăng ký */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary auth-submit-btn"
-            >
+            <button type="submit" className="auth-submit-btn" disabled={loading}>
               {loading ? (
-                <>
-                  <Loader2 size={16} className="auth-spin" aria-hidden="true" />
-                  <span>{t("auth.registering")}</span>
-                </>
-              ) : justSuccess ? (
-                <>
-                  <CheckCircle2 size={16} aria-hidden="true" />
-                  <span>{t("auth.registerSuccess")}</span>
-                </>
+                <Loader2 size={16} className="auth-spin" aria-hidden="true" />
               ) : (
-                <>
-                  <UserPlus size={16} aria-hidden="true" />
-                  <span>{t("auth.registerSubmit")}</span>
-                </>
+                <Ticket size={16} aria-hidden="true" />
               )}
+              {loading ? t("auth.registering") : t("auth.registerSubmit")}
             </button>
-
-            {/* Link Xem như Khách */}
-            <div className="auth-guest-row">
-              <button
-                type="button"
-                className="auth-link-guest"
-                onClick={handleGuestClick}
-              >
-                {t("auth.guestLink")}
-              </button>
-            </div>
           </form>
         )}
 
-        <footer className="auth-dialog__foot">
-          <Film size={13} aria-hidden="true" />
+        <div className="auth-dialog__foot">
           <span>{t("auth.footer")}</span>
-        </footer>
+        </div>
       </div>
     </dialog>
   );

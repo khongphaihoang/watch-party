@@ -3345,30 +3345,6 @@ button {
   padding: 24px 24px 20px;
 }
 
-.auth-dialog__close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-1);
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-  z-index: 10;
-}
-
-.auth-dialog__close:hover {
-  background: var(--surface-2);
-  border-color: var(--line-accent);
-  color: var(--text);
-  transform: scale(1.04);
-}
-
 .auth-dialog__head {
   display: flex;
   flex-direction: column;
@@ -3716,29 +3692,6 @@ button {
 .auth-demo-btn__text span {
   font-size: 11px;
   color: var(--text-dim);
-}
-
-/* Guest link */
-.auth-guest-row {
-  display: flex;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.auth-link-guest {
-  border: 0;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.15s var(--ease);
-}
-
-.auth-link-guest:hover {
-  color: var(--accent);
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .auth-dialog__foot {

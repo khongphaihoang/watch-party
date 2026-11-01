@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Từ điển chuỗi giao diện. `vi` là nguồn chân lý: mọi khoá phải có ở đây trước,
  * `en` được kiểu hoá theo đúng tập khoá đó nên thiếu bản dịch sẽ lỗi biên dịch.
  */
@@ -7,17 +7,20 @@ const vi = {
   "common.close": "Đóng",
   "common.back": "Quay lại",
   "common.next": "Tiếp tục",
+  "common.save": "Lưu",
   "common.cancel": "Huỷ",
   "common.copy": "Sao chép",
   "common.copied": "Đã sao chép",
   "common.you": "Bạn",
-  "common.guest": "Khách",
   "common.seats": "ghế",
   "common.people": "người",
   "common.live": "Trực tiếp",
   "common.waiting": "Đang chờ",
   "common.playing": "Đang chiếu",
   "common.paused": "Tạm dừng",
+  "common.buffering": "Đang tải",
+  "common.ended": "Đã hết",
+  "common.error": "Lỗi phát",
 
   // -------------------------------------------------------------- thương hiệu
   "brand.name": "Rạp Nhà",
@@ -139,6 +142,9 @@ const vi = {
   "room.showUiAria": "Hiện lại giao diện",
   "room.linkCopied": "Đã sao chép link rạp.",
   "room.linkFallback": "Link rạp: {url}",
+  "room.copyCode": "Sao chép mã phòng",
+  "room.codeCopied": "Đã sao chép mã rạp.",
+  "room.codeFallback": "Mã rạp: {code}",
   "room.fullscreenUnsupported": "Trình duyệt chưa hỗ trợ toàn màn hình.",
   "room.welcome": "Chào mừng bạn đến rạp! Ghế của bạn đã được giữ.",
 
@@ -157,8 +163,7 @@ const vi = {
   "screen.loadingTitle": "Đang mở cửa rạp…",
   "screen.loadingDesc": "Đang lấy trạng thái phòng và xếp ghế. Chờ một nhịp thôi.",
   "screen.fullTitle": "Rạp đã kín chỗ",
-  "screen.fullDesc":
-    "Cả 72 ghế đã có người. Bạn vẫn xem được ở chế độ khán giả và trò chuyện cùng rạp.",
+  "screen.fullDesc": "Phòng đã đủ số người cho phép. Bạn về trang chủ để tạo hoặc vào rạp khác nhé.",
   "screen.fullAction": "Xem ở chế độ khán giả",
   "screen.endedTitle": "Suất chiếu đã kết thúc",
   "screen.endedDesc":
@@ -234,7 +239,7 @@ const vi = {
   "members.subtitle": "{count} / {capacity} ghế đã có người",
   "members.noSeat": "chưa chọn ghế",
   "members.host": "Chủ rạp",
-  "info.subtitle": "Rạp Nhà · bản demo Phase 1",
+  "info.subtitle": "Rạp Nhà · phòng chiếu trực tuyến",
   "info.roomName": "Tên phòng",
   "info.roomCode": "Mã phòng",
   "info.nowShowing": "Đang chiếu",
@@ -246,7 +251,7 @@ const vi = {
   "info.points": "Điểm của bạn",
   "info.phase": "Giai đoạn hiện tại",
   "info.phaseDesc":
-    "Phase 1 — Cinema UI với dữ liệu giả lập. Chưa có backend, chưa lưu dữ liệu thật.",
+    "Phase 2 — phòng, thành viên và ghế lưu trên máy chủ. Chat, hàng chờ và bình chọn bỏ qua vẫn là dữ liệu cục bộ, thuộc Phase 3–4.",
   "photos.title": "Chia sẻ hình ảnh",
   "photos.heading": "Gửi ảnh lên màn chiếu",
   "photos.body":
@@ -373,28 +378,29 @@ const vi = {
   "auth.loggingIn": "Đang vào rạp...",
   "auth.loginSuccess": "Vào rạp thành công!",
   "auth.loginSubmit": "Vào Rạp Chiếu Phim",
-  "auth.guestLink": "Tiếp tục xem với tư cách Khán giả vãng lai (Khách) →",
   "auth.regUsernamePlaceholder": "Tên đăng nhập của bạn",
   "auth.regUsernameHint": "Dùng để đăng nhập vào tài khoản của bạn.",
   "auth.displayName": "Tên hiển thị trên ghế",
   "auth.displayNamePlaceholder": "Tên của bạn",
   "auth.displayNameHint":
     "Tên này sẽ in trực tiếp lên ghế ngồi trong rạp và xuất hiện khi chat.",
-  "auth.passwordMinPlaceholder": "Tối thiểu 6 ký tự",
+  "auth.passwordMinPlaceholder": "Tối thiểu 8 ký tự",
   "auth.confirmPassword": "Xác nhận lại mật khẩu",
   "auth.confirmPlaceholder": "Nhập lại mật khẩu",
   "auth.registering": "Đang tạo tài khoản...",
   "auth.registerSuccess": "Tạo tài khoản thành công!",
   "auth.registerSubmit": "Tạo Tài Khoản & Vào Rạp",
   "auth.footer": "Rạp Nhà — Trải nghiệm xem chung âm thanh & hình ảnh đồng bộ",
-  "auth.closeAria": "Đóng và xem rạp với tư cách Khách",
-  "auth.closeTitle": "Xem với tư cách Khách",
   "auth.errUsernameRequired": "Vui lòng nhập tên đăng nhập.",
   "auth.errUsernameShort": "Tên đăng nhập cần tối thiểu 3 ký tự.",
+  "auth.errUsernameLong": "Tên đăng nhập tối đa {max} ký tự.",
+  "auth.errUsernameChars": "Tên đăng nhập chỉ dùng chữ, số và các dấu . _ -",
+  "auth.errLoginFailed": "Chưa đăng nhập được, bạn thử lại nhé.",
+  "auth.errRegisterFailed": "Chưa tạo được tài khoản, bạn thử lại nhé.",
   "auth.errDisplayRequired": "Vui lòng nhập tên hiển thị trên ghế.",
   "auth.errDisplayShort": "Tên hiển thị cần tối thiểu 2 ký tự.",
   "auth.errPasswordRequired": "Vui lòng nhập mật khẩu.",
-  "auth.errPasswordShort": "Mật khẩu cần tối thiểu 6 ký tự.",
+  "auth.errPasswordShort": "Mật khẩu cần tối thiểu 8 ký tự.",
   "auth.errConfirmRequired": "Vui lòng xác nhận lại mật khẩu.",
   "auth.errConfirmMismatch": "Mật khẩu xác nhận không trùng khớp.",
   "auth.errNoAccount": "Tên đăng nhập không tồn tại. Bạn hãy đăng ký tài khoản mới nhé.",
@@ -402,12 +408,60 @@ const vi = {
   "auth.errUsernameTaken": "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.",
   "auth.toastWelcomeBack": "Chào mừng {name} trở lại Rạp Nhà!",
   "auth.toastRegistered": "Đăng ký thành công! Chào mừng {name} đến Rạp Nhà!",
-  "auth.toastGuest":
-    "Bạn đang tham quan rạp với tư cách Khách. Đăng nhập để lưu ghế và điểm thưởng nhé!",
 
   // ---------------------------------------------------------------- sân khấu 3D
   "stage.aria":
     "Rạp chiếu phim 3D: màn hình chiếu ở giữa và các hàng ghế hướng về màn hình",
+
+  // ---------------------------------------------------- phase 2: phiên & phòng
+  "auth.errProfileFailed": "Chưa lưu được hồ sơ, bạn thử lại nhé.",
+  "auth.profileTitle": "Hồ sơ của bạn",
+  "auth.profileSubtitle": "Đổi tên hiển thị và màu áo của nhân vật trong rạp.",
+  "auth.saved": "Đã lưu hồ sơ.",
+
+  "room.leave": "Rời phòng",
+  "room.leaveAria": "Rời phòng và giải phóng ghế đang ngồi",
+  "room.closeRoom": "Đóng phòng",
+  "room.goHome": "Về trang chủ",
+  "room.missingTitle": "Không tìm thấy rạp này",
+  "room.missingDesc":
+    "Mã phòng không đúng hoặc phòng đã bị xoá. Bạn kiểm tra lại mã, hoặc xin chủ rạp link mới.",
+  "room.removedTitle": "Bạn không còn trong rạp",
+  "room.removedDesc":
+    "Chủ rạp đã mời bạn ra khỏi phòng này. Bạn có thể về trang chủ để vào rạp khác.",
+
+  "members.kick": "Mời ra",
+  "members.kickAria": "Mời {name} ra khỏi phòng",
+  "members.kicked": "Đã mời thành viên ra khỏi phòng.",
+  "members.empty": "Chưa có ai trong rạp.",
+
+  "onboard.errJoinCodeRequired": "Vui lòng nhập mã phòng hoặc dán liên kết phòng.",
+
+  "seats.release": "Bỏ ghế",
+
+  "toast.seatReleased": "Đã bỏ ghế của bạn.",
+  "toast.roomClosed": "Đã đóng phòng.",
+  "toast.leftRoom": "Bạn đã rời phòng.",
+  "toast.networkError": "Không kết nối được máy chủ rạp, thử lại nhé.",
+
+  "playback.play": "Phát",
+  "playback.pause": "Tạm dừng",
+  "playback.seek": "Tua video",
+  "playback.liveNoSeek": "Livestream không hỗ trợ tua.",
+  "playback.pickVideo": "Chiếu video khác",
+  "playback.memberWait": "Chờ chủ rạp chọn video.",
+  "playback.syncing": "Đang đồng bộ…",
+  "playback.waitingHost": "Đang chờ chủ rạp…",
+  "playback.autoplayBlocked": "Bấm để phát",
+  "queue.playNow": "Chiếu ngay",
+  "queue.hostHint": "Bạn là chủ rạp: bấm “Chiếu ngay” để đổi video cho cả phòng.",
+  "queue.memberHint": "Chủ rạp chọn video phát chung. Bạn có thể xem trước và thêm vào hàng chờ.",
+  "queue.playItem": "Chiếu {title} ngay",
+  "queue.live": "Livestream",
+  "toast.videoLoaded": "Đã chiếu video mới.",
+
+  "settings.snapshotNote":
+    "Các nút đổi trạng thái bên dưới chỉ đổi giao diện trên máy bạn. Lần cập nhật phòng kế tiếp sẽ ghi đè bằng dữ liệu từ máy chủ.",
 } as const;
 
 export type MessageKey = keyof typeof vi;
@@ -416,17 +470,20 @@ const en: Record<MessageKey, string> = {
   "common.close": "Close",
   "common.back": "Back",
   "common.next": "Continue",
+  "common.save": "Save",
   "common.cancel": "Cancel",
   "common.copy": "Copy",
   "common.copied": "Copied",
   "common.you": "You",
-  "common.guest": "Guest",
   "common.seats": "seats",
   "common.people": "people",
   "common.live": "Live",
   "common.waiting": "Waiting",
   "common.playing": "Now playing",
   "common.paused": "Paused",
+  "common.buffering": "Buffering",
+  "common.ended": "Ended",
+  "common.error": "Playback error",
 
   "brand.name": "Rạp Nhà",
   "brand.tagline": "One cinema, one screen",
@@ -538,6 +595,9 @@ const en: Record<MessageKey, string> = {
   "room.showUiAria": "Show the interface again",
   "room.linkCopied": "Room link copied.",
   "room.linkFallback": "Room link: {url}",
+  "room.copyCode": "Copy room code",
+  "room.codeCopied": "Room code copied.",
+  "room.codeFallback": "Room code: {code}",
   "room.fullscreenUnsupported": "This browser doesn't support fullscreen yet.",
   "room.welcome": "Welcome to the cinema! Your seat is saved.",
 
@@ -555,8 +615,7 @@ const en: Record<MessageKey, string> = {
   "screen.loadingTitle": "Opening the cinema…",
   "screen.loadingDesc": "Fetching the room state and arranging seats. Just a moment.",
   "screen.fullTitle": "The cinema is full",
-  "screen.fullDesc":
-    "All 72 seats are taken. You can still watch as an audience member and chat with the room.",
+  "screen.fullDesc": "This room has reached its member limit. Head home to create or join another one.",
   "screen.fullAction": "Watch as audience",
   "screen.endedTitle": "The show has ended",
   "screen.endedDesc":
@@ -627,7 +686,7 @@ const en: Record<MessageKey, string> = {
   "members.subtitle": "{count} / {capacity} seats taken",
   "members.noSeat": "no seat yet",
   "members.host": "Host",
-  "info.subtitle": "Rạp Nhà · Phase 1 demo",
+  "info.subtitle": "Rạp Nhà · online screening room",
   "info.roomName": "Room name",
   "info.roomCode": "Room code",
   "info.nowShowing": "Now showing",
@@ -639,7 +698,7 @@ const en: Record<MessageKey, string> = {
   "info.points": "Your points",
   "info.phase": "Current phase",
   "info.phaseDesc":
-    "Phase 1 — Cinema UI with mock data. No backend yet, nothing is persisted.",
+    "Phase 2 — rooms, members and seats live on the server. Chat, queue and skip votes are still local data, planned for Phase 3–4.",
   "photos.title": "Share photos",
   "photos.heading": "Send a photo to the screen",
   "photos.body":
@@ -763,28 +822,29 @@ const en: Record<MessageKey, string> = {
   "auth.loggingIn": "Entering the cinema...",
   "auth.loginSuccess": "You're in!",
   "auth.loginSubmit": "Enter the cinema",
-  "auth.guestLink": "Continue as a walk-in viewer (guest) →",
   "auth.regUsernamePlaceholder": "Your username",
   "auth.regUsernameHint": "Used to log in to your account.",
   "auth.displayName": "Name shown on your seat",
   "auth.displayNamePlaceholder": "Your name",
   "auth.displayNameHint":
     "This name is printed on your seat in the theatre and appears when you chat.",
-  "auth.passwordMinPlaceholder": "At least 6 characters",
+  "auth.passwordMinPlaceholder": "At least 8 characters",
   "auth.confirmPassword": "Confirm password",
   "auth.confirmPlaceholder": "Re-enter your password",
   "auth.registering": "Creating your account...",
   "auth.registerSuccess": "Account created!",
   "auth.registerSubmit": "Create account & enter",
   "auth.footer": "Rạp Nhà — Watch together with synced sound and picture",
-  "auth.closeAria": "Close and view the cinema as a guest",
-  "auth.closeTitle": "View as a guest",
   "auth.errUsernameRequired": "Please enter your username.",
   "auth.errUsernameShort": "The username needs at least 3 characters.",
+  "auth.errUsernameLong": "The username can be at most {max} characters.",
+  "auth.errUsernameChars": "Usernames can only use letters, numbers and . _ -",
+  "auth.errLoginFailed": "Couldn't log you in. Please try again.",
+  "auth.errRegisterFailed": "Couldn't create your account. Please try again.",
   "auth.errDisplayRequired": "Please enter the name shown on your seat.",
   "auth.errDisplayShort": "The display name needs at least 2 characters.",
   "auth.errPasswordRequired": "Please enter your password.",
-  "auth.errPasswordShort": "The password needs at least 6 characters.",
+  "auth.errPasswordShort": "The password needs at least 8 characters.",
   "auth.errConfirmRequired": "Please confirm your password.",
   "auth.errConfirmMismatch": "The passwords don't match.",
   "auth.errNoAccount": "That username doesn't exist. Please sign up for a new account.",
@@ -792,11 +852,58 @@ const en: Record<MessageKey, string> = {
   "auth.errUsernameTaken": "That username is taken. Please choose another one.",
   "auth.toastWelcomeBack": "Welcome back to Rạp Nhà, {name}!",
   "auth.toastRegistered": "Signed up! Welcome to Rạp Nhà, {name}!",
-  "auth.toastGuest":
-    "You're browsing the cinema as a guest. Log in to save your seat and reward points!",
 
   "stage.aria":
     "3D cinema: the projection screen in the middle with rows of seats facing it",
+
+  "auth.errProfileFailed": "Couldn't save your profile. Please try again.",
+  "auth.profileTitle": "Your profile",
+  "auth.profileSubtitle": "Change the name and shirt colour shown in the cinema.",
+  "auth.saved": "Profile saved.",
+
+  "room.leave": "Leave room",
+  "room.leaveAria": "Leave the room and release your seat",
+  "room.closeRoom": "Close room",
+  "room.goHome": "Back to home",
+  "room.missingTitle": "Room not found",
+  "room.missingDesc":
+    "That code is wrong or the room was deleted. Double-check the code or ask the host for a new link.",
+  "room.removedTitle": "You're no longer in this room",
+  "room.removedDesc":
+    "The host removed you from this room. You can head home and join another screening.",
+
+  "members.kick": "Remove",
+  "members.kickAria": "Remove {name} from the room",
+  "members.kicked": "Member removed from the room.",
+  "members.empty": "Nobody in the room yet.",
+
+  "onboard.errJoinCodeRequired": "Enter a room code or paste a room link.",
+
+  "seats.release": "Release seat",
+
+  "toast.seatReleased": "Your seat was released.",
+  "toast.roomClosed": "Room closed.",
+  "toast.leftRoom": "You left the room.",
+  "toast.networkError": "Can't reach the room server. Please try again.",
+
+  "playback.play": "Play",
+  "playback.pause": "Pause",
+  "playback.seek": "Seek video",
+  "playback.liveNoSeek": "Live streams can't be seeked.",
+  "playback.pickVideo": "Play another video",
+  "playback.memberWait": "Waiting for the host to pick a video.",
+  "playback.syncing": "Syncing…",
+  "playback.waitingHost": "Waiting for the host…",
+  "playback.autoplayBlocked": "Tap to play",
+  "queue.playNow": "Play now",
+  "queue.hostHint": "You host this room: press “Play now” to change the video for everyone.",
+  "queue.memberHint": "The host controls playback. You can preview videos and add them to the queue.",
+  "queue.playItem": "Play {title} now",
+  "queue.live": "Live stream",
+  "toast.videoLoaded": "New video is now playing.",
+
+  "settings.snapshotNote":
+    "The buttons below only change the interface on your machine. The next room update from the server will override them.",
 };
 
 export const messages = { vi, en } as const;

@@ -1,14 +1,17 @@
-export type UserRole = "viewer" | "vip" | "host";
-
+/**
+ * Phiên người dùng. Rạp chỉ dành cho tài khoản thật — không còn vai trò khách.
+ */
 export interface User {
   id: string;
   username: string;
   displayName: string;
-  avatarColor: string;
-  role: UserRole;
-  points: number;
-  createdAt: number;
+  shirtColor: string;
+  bodyStyle: "male" | "female";
 }
+
+export type AuthStatus = "unknown" | "anonymous" | "ready";
+
+export type AuthTab = "login" | "register";
 
 export interface LoginCredentials {
   username: string;
@@ -22,5 +25,3 @@ export interface RegisterData {
   password: string;
   confirmPassword: string;
 }
-
-export type AuthTab = "login" | "register";

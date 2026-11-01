@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ListVideo, Play, Plus, Trash2, Video } from "lucide-react";
@@ -9,19 +9,33 @@ import { PanelShell } from "./PanelShell";
 
 export function QueuePanel({
   room,
+  isHost,
   onEnqueue,
   onDequeue,
-  onPlayNext,
+  onPlayNow,
+  onPlayItem,
   onClose,
 }: {
   room: RoomState;
+  isHost: boolean;
   onEnqueue: (url: string) => boolean;
   onDequeue: (id: string) => void;
-  onPlayNext: () => void;
+  onPlayNow: (url: string, isLive: boolean) => Promise<boolean>;
+  onPlayItem: (id: string) => void;
   onClose: () => void;
 }) {
   const t = useT();
   const [url, setUrl] = useState("");
+  const [isLive, setIsLive] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const playNow = async () => {
+    if (busy) return;
+    setBusy(true);
+    const ok = await onPlayNow(url, isLive);
+    setBusy(false);
+    if (ok) setUrl("");
+  };
 
   return (
     <PanelShell
@@ -29,15 +43,9 @@ export function QueuePanel({
       subtitle={t("queue.subtitle", { count: room.queue.length })}
       onClose={onClose}
       footer={
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          onClick={onPlayNext}
-          disabled={room.queue.length === 0}
-        >
-          <Play size={15} aria-hidden="true" />
-          {t("nowPlaying.playNext")}
-        </button>
+        <p className="hint" style={{ margin: 0 }}>
+          {isHost ? t("queue.hostHint") : t("queue.memberHint")}
+        </p>
       }
     >
       <div className="field">
@@ -68,6 +76,29 @@ export function QueuePanel({
           </button>
         </div>
         <p className="hint">{t("queue.hint")}</p>
+        {isHost ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy || url.trim().length === 0}
+              onClick={() => {
+                void playNow();
+              }}
+            >
+              <Play size={15} aria-hidden="true" />
+              {t("queue.playNow")}
+            </button>
+            <label className="hint" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={isLive}
+                onChange={(event) => setIsLive(event.target.checked)}
+              />
+              {t("queue.live")}
+            </label>
+          </div>
+        ) : null}
       </div>
 
       {room.queue.length === 0 ? (
@@ -96,6 +127,17 @@ export function QueuePanel({
                   {item.channelTitle} · {formatDuration(item.durationSec)} · {item.addedBy}
                 </span>
               </span>
+              {isHost ? (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => onPlayItem(item.id)}
+                  aria-label={t("queue.playItem", { title: item.title })}
+                  data-tip={t("queue.playNow")}
+                >
+                  <Play size={16} aria-hidden="true" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="icon-btn"

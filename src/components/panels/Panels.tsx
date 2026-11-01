@@ -7,17 +7,29 @@ import {
   Info,
   ListChecks,
   Mic,
+  UserMinus,
   Users,
 } from "lucide-react";
 import { formatCount, initials } from "@/lib/format";
 import { useT, type MessageKey } from "@/lib/i18n";
-import type { PlaybackState, RoomState, UiStatus } from "@/lib/room-types";
+import type { RoomState, UiStatus } from "@/lib/room-types";
 import { PanelShell } from "./PanelShell";
 
 export { BoostPanel } from "./BoostPanel";
 
-export function MembersPanel({ room, onClose }: { room: RoomState; onClose: () => void }) {
+export function MembersPanel({
+  room,
+  onClose,
+  onKick,
+}: {
+  room: RoomState;
+  onClose: () => void;
+  onKick?: (memberId: string) => void;
+}) {
   const t = useT();
+  const viewer = room.members.find((member) => member.id === room.viewerId);
+  const canKick = Boolean(viewer?.isHost && onKick);
+
   return (
     <PanelShell
       title={t("members.title")}
@@ -27,30 +39,45 @@ export function MembersPanel({ room, onClose }: { room: RoomState; onClose: () =
       })}
       onClose={onClose}
     >
-      <ul className="list">
-        {room.members.map((member) => (
-          <li key={member.id} className="row-item">
-            <span
-              className="chat-msg__avatar"
-              style={{ background: member.shirtColor }}
-              aria-hidden="true"
-            >
-              {initials(member.displayName)}
-            </span>
-            <span className="row-item__main">
-              <span className="row-item__title">{member.displayName}</span>
-              <span className="row-item__meta">
-                {member.seatId ? describeSeat(member.seatId, t) : t("members.noSeat")}
+      {room.members.length === 0 ? (
+        <p className="hint">{t("members.empty")}</p>
+      ) : (
+        <ul className="list">
+          {room.members.map((member) => (
+            <li key={member.id} className="row-item">
+              <span
+                className="chat-msg__avatar"
+                style={{ background: member.shirtColor }}
+                aria-hidden="true"
+              >
+                {initials(member.displayName)}
               </span>
-            </span>
-            {member.isHost ? (
-              <span className="chip chip--warn">
-                <BadgeCheck size={11} aria-hidden="true" /> {t("members.host")}
+              <span className="row-item__main">
+                <span className="row-item__title">{member.displayName}</span>
+                <span className="row-item__meta">
+                  {member.seatId ? describeSeat(member.seatId, t) : t("members.noSeat")}
+                </span>
               </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+              {member.isHost ? (
+                <span className="chip chip--warn">
+                  <BadgeCheck size={11} aria-hidden="true" /> {t("members.host")}
+                </span>
+              ) : null}
+              {canKick && !member.isHost && member.id !== room.viewerId ? (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => onKick?.(member.id)}
+                  aria-label={t("members.kickAria", { name: member.displayName })}
+                  title={t("members.kick")}
+                >
+                  <UserMinus size={15} aria-hidden="true" />
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </PanelShell>
   );
 }
@@ -58,22 +85,51 @@ export function MembersPanel({ room, onClose }: { room: RoomState; onClose: () =
 export function InfoPanel({
   room,
   onCopyLink,
+  onCopyCode,
   onClose,
+  onLeave,
+  onCloseRoom,
 }: {
   room: RoomState;
   onCopyLink: () => void;
+  onCopyCode?: () => void;
   onClose: () => void;
+  onLeave?: () => void;
+  onCloseRoom?: () => void;
 }) {
   const t = useT();
+  const viewer = room.members.find((member) => member.id === room.viewerId);
   return (
     <PanelShell
       title={t("topbar.info")}
       subtitle={t("info.subtitle")}
       onClose={onClose}
       footer={
-        <button type="button" className="btn btn-primary btn-block" onClick={onCopyLink}>
-          {t("topbar.copyLink")}
-        </button>
+        <div style={{ display: "grid", gap: 8 }}>
+          <button type="button" className="btn btn-primary btn-block" onClick={onCopyLink}>
+            {t("topbar.copyLink")}
+          </button>
+          {onCopyCode ? (
+            <button type="button" className="btn btn-secondary btn-block" onClick={onCopyCode}>
+              {t("room.copyCode")}
+            </button>
+          ) : null}
+          {onLeave ? (
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={onLeave}
+              aria-label={t("room.leaveAria")}
+            >
+              {t("room.leave")}
+            </button>
+          ) : null}
+          {viewer?.isHost && onCloseRoom ? (
+            <button type="button" className="btn btn-secondary btn-block" onClick={onCloseRoom}>
+              {t("room.closeRoom")}
+            </button>
+          ) : null}
+        </div>
       }
     >
       <ul className="list">
@@ -122,19 +178,13 @@ export function PhotosPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-const DEMO_STATES: Array<{
-  labelKey: MessageKey;
-  ui?: UiStatus;
-  playback?: PlaybackState;
-}> = [
+// Chỉ mô phỏng trạng thái giao diện cục bộ. Trạng thái phát là dữ liệu thật của
+// phòng nên không còn nút giả lập play/pause ở đây.
+const DEMO_STATES: Array<{ labelKey: MessageKey; ui?: UiStatus }> = [
   { labelKey: "demo.1", ui: "loading" },
-  { labelKey: "demo.2", ui: "ready", playback: "idle" },
-  { labelKey: "demo.3", ui: "ready", playback: "playing" },
-  { labelKey: "demo.4", ui: "ready", playback: "paused" },
-  { labelKey: "demo.5", ui: "ready", playback: "buffering" },
+  { labelKey: "demo.2", ui: "ready" },
   { labelKey: "demo.7", ui: "full" },
   { labelKey: "demo.9", ui: "reconnecting" },
-  { labelKey: "demo.10", ui: "ready", playback: "error" },
   { labelKey: "demo.11", ui: "ended" },
 ];
 
@@ -142,7 +192,6 @@ export function SettingsPanel({
   room,
   demoVoice,
   onSetUi,
-  onSetPlayback,
   onToggleDemoVoice,
   onDemoJoin,
   onClose,
@@ -150,7 +199,6 @@ export function SettingsPanel({
   room: RoomState;
   demoVoice: boolean;
   onSetUi: (ui: UiStatus) => void;
-  onSetPlayback: (state: PlaybackState) => void;
   onToggleDemoVoice: () => void;
   onDemoJoin: () => void;
   onClose: () => void;
@@ -165,11 +213,12 @@ export function SettingsPanel({
       <div className="field">
         <span className="field__label">{t("settings.stateLabel")}</span>
         <p className="hint">{t("settings.stateHint")}</p>
+        <p className="hint" style={{ marginTop: 0 }}>
+          {t("settings.snapshotNote")}
+        </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {DEMO_STATES.map((state) => {
-            const isActive =
-              room.ui === state.ui &&
-              (!state.playback || room.nowPlaying?.state === state.playback);
+            const isActive = room.ui === state.ui;
             return (
               <button
                 key={state.labelKey}
@@ -177,7 +226,6 @@ export function SettingsPanel({
                 className={`btn ${isActive ? "btn-primary" : "btn-secondary"}`}
                 style={{ justifyContent: "flex-start" }}
                 onClick={() => {
-                  if (state.playback) onSetPlayback(state.playback);
                   if (state.ui) onSetUi(state.ui);
                 }}
               >
@@ -192,7 +240,6 @@ export function SettingsPanel({
             style={{ justifyContent: "flex-start" }}
             onClick={() => {
               onSetUi("ready");
-              onSetPlayback("playing");
             }}
           >
             <Info size={15} aria-hidden="true" />

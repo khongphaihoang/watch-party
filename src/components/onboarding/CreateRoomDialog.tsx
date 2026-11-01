@@ -19,10 +19,11 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import { generateRoomCode, saveRoomSetup, type RoomSetup } from "@/lib/room-setup";
+import { isApiError } from "@/lib/api/client";
+import { createRoom as apiCreateRoom, joinRoom as apiJoinRoom } from "@/lib/api/rooms";
+import { readRecentRooms, rememberRecentRoom, type RecentRoom } from "@/lib/recent-rooms";
 import { parseYouTubeId, youTubeThumbnail } from "@/lib/youtube";
 import { useT, type MessageKey } from "@/lib/i18n";
-import { useAuthStore } from "@/lib/auth-store";
 import { BrandMark } from "@/components/hud/RoomTopBar";
 
 type DialogMode = "create" | "join";
@@ -62,38 +63,11 @@ interface FieldError {
   message: string;
 }
 
-interface RecentRoom {
+/** Phòng vừa tạo trên server — chỉ đủ dữ liệu để hiện bước chia sẻ. */
+interface CreatedRoom {
   code: string;
   title: string;
-  videoTitle?: string;
-  createdAt?: number;
-}
-
-function getStoredRecentRooms(): RecentRoom[] {
-  if (typeof window === "undefined") return [];
-  const rooms: RecentRoom[] = [];
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("rap-chieu:room:")) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.code && parsed.title) {
-            rooms.push({
-              code: parsed.code,
-              title: parsed.title,
-              videoTitle: parsed.videoTitle,
-              createdAt: parsed.createdAt,
-            });
-          }
-        }
-      }
-    }
-  } catch {
-    // Bỏ qua lỗi
-  }
-  return rooms.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 4);
+  videoTitle: string;
 }
 
 export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
@@ -108,7 +82,6 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
   const headingId = useId();
   const t = useT();
-  const { user } = useAuthStore();
 
   // Mode: "create" (Tạo phòng mới) hoặc "join" (Vào phòng bằng mã)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create");
@@ -116,6 +89,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   // Join form state
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState("");
+  const [joinBusy, setJoinBusy] = useState(false);
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
 
   // Create form state
@@ -124,7 +98,9 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const [videoUrl, setVideoUrl] = useState("");
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
-  const [created, setCreated] = useState<RoomSetup | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [created, setCreated] = useState<CreatedRoom | null>(null);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [copyBlocked, setCopyBlocked] = useState(false);
@@ -134,7 +110,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
-    setRecentRooms(getStoredRecentRooms());
+    setRecentRooms(readRecentRooms());
   }, []);
 
   useEffect(() => {
@@ -195,22 +171,34 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     else videoInputRef.current?.focus();
   }
 
-  function createRoom() {
-    if (!resolvedVideo) return;
-    const setup: RoomSetup = {
-      code: generateRoomCode(),
-      title: roomTitle.trim(),
-      hostName: user?.displayName || user?.username || t("common.you"),
-      videoId: resolvedVideo.videoId,
-      videoTitle: resolvedVideo.title,
-      channelTitle: resolvedVideo.channelTitle,
-      createdAt: Date.now(),
-    };
-    saveRoomSetup(setup);
-    setCreated(setup);
-    setShareUrl(`${window.location.origin}/room/${setup.code}`);
-    setStep("share");
-    setRecentRooms(getStoredRecentRooms());
+  async function createRoom() {
+    if (!resolvedVideo || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const snapshot = await apiCreateRoom({
+        title: roomTitle.trim(),
+        videoId: resolvedVideo.videoId,
+        videoTitle: resolvedVideo.title,
+        channelTitle: resolvedVideo.channelTitle,
+      });
+      const room: CreatedRoom = {
+        code: snapshot.code,
+        title: snapshot.title,
+        videoTitle: snapshot.nowPlaying?.title ?? resolvedVideo.title,
+      };
+      rememberRecentRoom(room);
+      setCreated(room);
+      setShareUrl(`${window.location.origin}/room/${snapshot.code}`);
+      setStep("share");
+      setRecentRooms(readRecentRooms());
+    } catch (error) {
+      setSubmitError(
+        isApiError(error) ? error.message : t("toast.networkError"),
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function goNext() {
@@ -223,7 +211,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     if (step === "video") {
       const nextErrors = validateVideo();
       setErrors(nextErrors);
-      if (nextErrors.length === 0) createRoom();
+      if (nextErrors.length === 0) void createRoom();
       return;
     }
     enterRoom();
@@ -241,11 +229,11 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
     router.push(`/room/${created.code}`);
   }
 
-  function handleJoinRoom(event: React.FormEvent) {
+  async function handleJoinRoom(event: React.FormEvent) {
     event.preventDefault();
     let raw = joinCode.trim();
     if (!raw) {
-      setJoinError("Vui lòng nhập mã phòng hoặc dán liên kết phòng.");
+      setJoinError(t("onboard.errJoinCodeRequired"));
       return;
     }
 
@@ -255,14 +243,28 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
       raw = match[1];
     }
 
-    const code = raw.toUpperCase();
-    onClose();
-    router.push(`/room/${code}`);
+    await joinAndEnter(raw.toUpperCase());
+  }
+
+  async function joinAndEnter(code: string) {
+    if (joinBusy) return;
+    setJoinBusy(true);
+    setJoinError("");
+    try {
+      // Join trước để báo đúng lỗi (phòng không tồn tại / đã đóng / đầy)
+      // thay vì đẩy người dùng vào một phòng trống.
+      await apiJoinRoom(code);
+      onClose();
+      router.push(`/room/${code}`);
+    } catch (error) {
+      setJoinError(isApiError(error) ? error.message : t("toast.networkError"));
+    } finally {
+      setJoinBusy(false);
+    }
   }
 
   function handleJoinDirect(code: string) {
-    onClose();
-    router.push(`/room/${code.toUpperCase()}`);
+    void joinAndEnter(code.toUpperCase());
   }
 
   async function copyLink() {
@@ -378,6 +380,15 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
             }}
           >
             <div className="onboard__body">
+              {submitError ? (
+                <div className="onboard__error" role="alert">
+                  <p className="onboard__error-title">
+                    <TriangleAlert size={13} aria-hidden="true" />
+                    {submitError}
+                  </p>
+                </div>
+              ) : null}
+
               {errors.length > 0 ? (
                 <div className="onboard__error" role="alert" tabIndex={-1} ref={summaryRef}>
                   <p className="onboard__error-title">
@@ -614,7 +625,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               <span className="onboard__foot-spacer" />
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary" disabled={submitting || joinBusy}>
                 {step === "share" ? (
                   <Clapperboard size={15} aria-hidden="true" />
                 ) : null}

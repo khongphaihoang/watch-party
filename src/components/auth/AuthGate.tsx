@@ -1,29 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/auth-store";
-import { useRoomStore } from "@/lib/room-store";
 import { AuthModal } from "./AuthModal";
 
+/**
+ * Nạp phiên từ server và mở popup đăng nhập khi chưa có tài khoản.
+ *
+ * Rạp chỉ dành cho thành viên nên popup này là cửa duy nhất đi tiếp: không có
+ * nút đóng, `Esc` cũng không tắt. Đăng nhập/đăng ký xong thì popup tự đóng và
+ * phòng tự join lại.
+ */
 export function AuthGate() {
-  const { user, isAuthenticated, isGuest, isModalOpen, openModal } = useAuthStore();
-  const updateViewerProfile = useRoomStore((state) => state.updateViewerProfile);
-  const bootstrapped = useRoomStore((state) => state.bootstrapped);
+  const status = useAuthStore((state) => state.status);
+  const user = useAuthStore((state) => state.user);
+  const isModalOpen = useAuthStore((state) => state.isModalOpen);
+  const loadSession = useAuthStore((state) => state.loadSession);
+  const openModal = useAuthStore((state) => state.openModal);
+  const autoOpened = useRef(false);
 
-  // Khi tải trang, nếu chưa đăng nhập và chưa bỏ qua, tự động bật popup đăng nhập/đăng ký
   useEffect(() => {
-    if (!isAuthenticated && !isGuest && !isModalOpen) {
-      openModal("login");
-    }
-  }, [isAuthenticated, isGuest, isModalOpen, openModal]);
+    if (status === "unknown") void loadSession();
+  }, [status, loadSession]);
 
-  // Đồng bộ thông tin người dùng vào phòng chiếu
   useEffect(() => {
-    if (user && bootstrapped) {
-      updateViewerProfile(user.displayName, user.avatarColor);
-    }
-  }, [user, bootstrapped, updateViewerProfile]);
+    if (autoOpened.current) return;
+    if (status === "unknown") return;
+    if (user) return;
+    if (isModalOpen) return;
+    autoOpened.current = true;
+    openModal("login");
+  }, [status, user, isModalOpen, openModal]);
 
   return <AuthModal />;
 }
-

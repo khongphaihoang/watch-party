@@ -56,7 +56,9 @@ export function RoomTopBar({
   onOpenPanel: (panel: PanelId) => void;
 }) {
   const t = useT();
-  const { user, isAuthenticated, openModal, logout } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const openModal = useAuthStore((state) => state.openModal);
+  const logout = useAuthStore((state) => state.logout);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -79,8 +81,8 @@ export function RoomTopBar({
     }
   }, [menuOpen]);
 
-  const displayName = user ? user.displayName : t("common.guest");
-  const avatarBg = user ? user.avatarColor : "#D6E87F";
+  const displayName = user ? user.displayName : t("common.you");
+  const avatarBg = user ? user.shirtColor : "#D6E87F";
 
   return (
     <>
@@ -189,8 +191,8 @@ export function RoomTopBar({
             {focus ? <Shrink size={18} aria-hidden="true" /> : null}
           </button>
 
-          {/* Khu vực Tài khoản / Đăng nhập */}
-          {isAuthenticated && user ? (
+          {/* Khu vực Hồ sơ khách */}
+          {user ? (
             <div className="topbar-user-menu" ref={menuRef}>
               <button
                 type="button"
@@ -215,10 +217,12 @@ export function RoomTopBar({
                     </div>
                     <div className="user-dropdown__info">
                       <strong className="user-dropdown__name">{displayName}</strong>
-                      <span className="user-dropdown__email">@{user.username}</span>
+                      <span className="user-dropdown__email">
+                        {user.username ? `@${user.username}` : ""}
+                      </span>
                       <span className="user-dropdown__badge">
                         <Sparkles size={11} aria-hidden="true" />
-                        {user.role === "vip" ? t("topbar.roleVip") : t("topbar.roleStandard")}
+                        {t("topbar.roleStandard")}
                       </span>
                     </div>
                   </div>
@@ -244,7 +248,7 @@ export function RoomTopBar({
                     className="user-dropdown__item user-dropdown__item--danger"
                     onClick={() => {
                       setMenuOpen(false);
-                      logout();
+                      void logout();
                     }}
                   >
                     <LogOut size={15} aria-hidden="true" />
@@ -257,7 +261,7 @@ export function RoomTopBar({
             <button
               type="button"
               className="topbar-login-btn"
-              onClick={() => openModal("login")}
+              onClick={() => openModal()}
               aria-label={t("topbar.loginAria")}
             >
               <LogIn size={15} aria-hidden="true" />

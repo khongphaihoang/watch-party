@@ -34,6 +34,7 @@ export interface Member {
 
 export interface NowPlaying {
   videoId: string;
+  videoType: "video" | "live";
   title: string;
   channelTitle: string;
   description: string;
@@ -45,6 +46,12 @@ export interface NowPlaying {
   /** Vị trí video tại thời điểm `startedAt`, tính bằng giây. */
   offsetSec: number;
   rate: number;
+  /** Tăng đơn điệu mỗi lệnh điều khiển; dùng để bỏ qua event cũ. */
+  version: number;
+  /** Epoch ms server của lần điều khiển gần nhất. */
+  updatedAt: number;
+  /** Id thành viên điều khiển gần nhất; null khi chưa có/chủ cũ đã rời. */
+  controlledBy: string | null;
   errorCode?: PlaybackErrorCode;
 }
 
@@ -77,7 +84,18 @@ export interface SkipVote {
 export type RoomLifecycle = "waiting" | "live" | "ended";
 
 /** Bề mặt giao diện đang hiển thị — độc lập với dữ liệu phòng. */
-export type UiStatus = "loading" | "ready" | "reconnecting" | "full" | "ended";
+export type UiStatus =
+  | "loading"
+  | "ready"
+  | "reconnecting"
+  | "full"
+  | "ended"
+  /** Mã phòng không tồn tại (404 từ server). */
+  | "missing"
+  /** Đã bị host mời ra khỏi phòng. */
+  | "removed"
+  /** Chưa đăng nhập / chưa có tài khoản nên chưa được vào rạp. */
+  | "login";
 
 export type PanelId =
   | "chat"

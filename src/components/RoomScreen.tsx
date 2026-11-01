@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, WifiOff } from "lucide-react";
 import { CinemaStage } from "@/components/cinema/CinemaStage";
 import { CrowdForeground } from "@/components/cinema/CrowdForeground";
@@ -17,10 +18,20 @@ import { WardrobePanel } from "@/components/panels/WardrobePanel";
 import { BoostPanel } from "@/components/panels/Panels";
 import { useRoomStore } from "@/lib/room-store";
 import { useT } from "@/lib/i18n";
+import {
+  CLOCK_REFRESH_MS,
+  CLOCK_SAMPLES,
+  CLOCK_SAMPLE_GAP_MS,
+  pickServerOffset,
+  type PingSample,
+} from "@/lib/clock-sync";
+import { pingServer } from "@/lib/api/realtime";
 import type { ViewportTier } from "@/lib/theater-layout";
 
 /** Chờ bao lâu không có thao tác thì HUD trong Focus Mode tự ẩn. */
 const FOCUS_IDLE_MS = 2600;
+/** Nhịp làm mới snapshot + giữ `last_seen_at` (server dọn sau ~2 phút). */
+const HEARTBEAT_MS = 60_000;
 
 function readTier(width: number): ViewportTier {
   if (width < 768) return "compact";
@@ -53,13 +64,22 @@ export function RoomScreen({ code }: { code: string }) {
     pushToast,
     dismissToast,
     takeSeat,
+    releaseSeat,
+    leaveRoom,
+    kickMember,
+    closeRoom,
+    refresh,
     sendMessage,
     toggleSkipVote,
     enqueue,
     dequeue,
-    playNext,
+    playUrl,
+    playQueueItem,
+    playVideo,
+    pauseVideo,
+    seekVideo,
+    setServerOffset,
     setUiStatus,
-    setPlaybackState,
     focus,
     setFocus,
     toggleFocus,
@@ -76,6 +96,7 @@ export function RoomScreen({ code }: { code: string }) {
   } = useRoomStore();
 
   const t = useT();
+  const router = useRouter();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chromeIdle, setChromeIdle] = useState(false);
@@ -83,7 +104,7 @@ export function RoomScreen({ code }: { code: string }) {
   useEffect(() => {
     // Điều hướng client-side từ `/` sang `/room/[code]` không reset store,
     // nên phải bootstrap lại khi mã phòng khác mã đang mở.
-    if (!bootstrapped || room?.code !== code) bootstrap(code);
+    if (!bootstrapped || room?.code !== code) void bootstrap(code);
   }, [bootstrapped, bootstrap, code, room?.code]);
 
   useEffect(() => {
@@ -148,6 +169,45 @@ export function RoomScreen({ code }: { code: string }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [panel, setPanel, focus, setFocus, toggleFocus, uiHidden, setUiHidden, toggleUiHidden]);
 
+  useEffect(() => {
+    // Nhịp giữ phiên: server dọn thành viên theo `last_seen_at` sau ~2 phút,
+    // nên client còn mở tab phải làm mới dấu thời gian này.
+    if (room?.ui !== "ready") return;
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, HEARTBEAT_MS);
+    return () => window.clearInterval(timer);
+  }, [refresh, room?.ui, room?.code]);
+
+  // Đo lệch đồng hồ để tính vị trí phát theo giờ máy chủ, không theo giờ máy khách.
+  useEffect(() => {
+    if (!room?.code) return;
+    let cancelled = false;
+
+    const measure = async () => {
+      const samples: PingSample[] = [];
+      for (let index = 0; index < CLOCK_SAMPLES; index += 1) {
+        const sample = await pingServer();
+        if (cancelled) return;
+        if (sample) samples.push(sample);
+        await new Promise((resolve) => setTimeout(resolve, CLOCK_SAMPLE_GAP_MS));
+      }
+      if (cancelled) return;
+      const offset = pickServerOffset(samples);
+      if (offset !== null) setServerOffset(offset);
+    };
+
+    void measure();
+    const timer = window.setInterval(() => {
+      void measure();
+    }, CLOCK_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [room?.code, setServerOffset]);
+
   // Focus Mode: HUD tự ẩn sau vài giây, hiện lại ngay khi có thao tác.
   useEffect(() => {
     if (!focus) {
@@ -206,6 +266,16 @@ export function RoomScreen({ code }: { code: string }) {
     }
   }, [code, pushToast, room?.code, t]);
 
+  const handleCopyCode = useCallback(async () => {
+    const roomCode = room?.code ?? code;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      pushToast(t("room.codeCopied"), "ok");
+    } catch {
+      pushToast(t("room.codeFallback", { code: roomCode }), "info");
+    }
+  }, [code, pushToast, room?.code, t]);
+
   const handleFullscreen = useCallback(async () => {
     try {
       if (document.fullscreenElement) {
@@ -223,6 +293,11 @@ export function RoomScreen({ code }: { code: string }) {
     sendMessage(draft);
   }, [draft, sendMessage]);
 
+  const handleLeave = useCallback(async () => {
+    await leaveRoom();
+    router.push("/");
+  }, [leaveRoom, router]);
+
   if (!room) {
     return (
       <main className="room">
@@ -234,16 +309,60 @@ export function RoomScreen({ code }: { code: string }) {
           members={[]}
           nowPlaying={null}
           ui="loading"
-          viewerName={t("common.you")}
+          isHost={false}
           viewerSeatId={undefined}
-          hasQueue={false}
           speakingIds={[]}
           onSeatSelect={() => undefined}
-          onPlayNext={() => undefined}
+          onOpenVideoPicker={() => undefined}
         />
         <div className="banner">
           <span className="spinner" /> {t("room.opening")}
         </div>
+      </main>
+    );
+  }
+
+  // Phòng không tồn tại hoặc đã bị mời ra: chỉ hiện màn chiếu báo lỗi + đường về.
+  if (room.ui === "missing" || room.ui === "removed") {
+    return (
+      <main className={`room room--${tier}`}>
+        <CinemaStage
+          tier={tier}
+          viewpoint="overview"
+          mode={mode}
+          seats={[]}
+          members={[]}
+          nowPlaying={null}
+          ui={room.ui}
+          isHost={false}
+          viewerSeatId={undefined}
+          speakingIds={[]}
+          onSeatSelect={() => undefined}
+          onOpenVideoPicker={() => undefined}
+        />
+      </main>
+    );
+  }
+
+  // Chưa có tài khoản: rạp chỉ dành cho thành viên nên chỉ dựng sân khấu trống,
+  // popup đăng nhập (AuthGate) nằm đè lên và không đóng được.
+  if (room.ui === "login") {
+    return (
+      <main className={`room room--${tier}`}>
+        <CinemaStage
+          tier={tier}
+          viewpoint="overview"
+          mode={mode}
+          seats={[]}
+          members={[]}
+          nowPlaying={null}
+          ui="login"
+          isHost={false}
+          viewerSeatId={undefined}
+          speakingIds={[]}
+          onSeatSelect={() => undefined}
+          onOpenVideoPicker={() => undefined}
+        />
       </main>
     );
   }
@@ -264,12 +383,11 @@ export function RoomScreen({ code }: { code: string }) {
         members={room.members}
         nowPlaying={room.nowPlaying}
         ui={room.ui}
-        viewerName={viewer?.displayName ?? t("common.you")}
+        isHost={Boolean(viewer?.isHost)}
         viewerSeatId={viewer?.seatId}
-        hasQueue={room.queue.length > 0}
         speakingIds={speakingIds}
         onSeatSelect={takeSeat}
-        onPlayNext={playNext}
+        onOpenVideoPicker={() => setPanel("send-video")}
       />
 
       <CrowdForeground
@@ -321,9 +439,13 @@ export function RoomScreen({ code }: { code: string }) {
       <NowPlayingPanel
         room={room}
         collapsed={infoCollapsed}
+        isHost={Boolean(viewer?.isHost)}
         onToggleCollapsed={toggleInfo}
         onToggleSkipVote={toggleSkipVote}
-        onPlayNext={playNext}
+        onPlay={(positionSec) => void playVideo(positionSec)}
+        onPause={(positionSec) => void pauseVideo(positionSec)}
+        onSeek={(positionSec) => void seekVideo(positionSec)}
+        onOpenVideoPicker={() => setPanel("send-video")}
       />
 
       <ToolRail
@@ -384,9 +506,11 @@ export function RoomScreen({ code }: { code: string }) {
       {panel === "queue" || panel === "send-video" ? (
         <QueuePanel
           room={room}
+          isHost={Boolean(viewer?.isHost)}
           onEnqueue={enqueue}
           onDequeue={dequeue}
-          onPlayNext={playNext}
+          onPlayNow={playUrl}
+          onPlayItem={(id) => void playQueueItem(id)}
           onClose={() => setPanel(null)}
         />
       ) : null}
@@ -397,6 +521,7 @@ export function RoomScreen({ code }: { code: string }) {
           members={room.members}
           viewerId={room.viewerId}
           onTakeSeat={takeSeat}
+          onReleaseSeat={releaseSeat}
           onClose={() => setPanel(null)}
         />
       ) : null}
@@ -410,11 +535,18 @@ export function RoomScreen({ code }: { code: string }) {
       ) : null}
 
       {panel === "members" ? (
-        <MembersPanel room={room} onClose={() => setPanel(null)} />
+        <MembersPanel room={room} onClose={() => setPanel(null)} onKick={kickMember} />
       ) : null}
 
       {panel === "info" ? (
-        <InfoPanel room={room} onCopyLink={handleCopyLink} onClose={() => setPanel(null)} />
+        <InfoPanel
+          room={room}
+          onCopyLink={handleCopyLink}
+          onCopyCode={handleCopyCode}
+          onClose={() => setPanel(null)}
+          onLeave={handleLeave}
+          onCloseRoom={closeRoom}
+        />
       ) : null}
 
       {panel === "photos" ? <PhotosPanel onClose={() => setPanel(null)} /> : null}
@@ -425,7 +557,6 @@ export function RoomScreen({ code }: { code: string }) {
           room={room}
           demoVoice={demoVoice}
           onSetUi={setUiStatus}
-          onSetPlayback={setPlaybackState}
           onToggleDemoVoice={toggleDemoVoice}
           onDemoJoin={() => pushToast(t("room.welcome"), "ok")}
           onClose={() => setPanel(null)}

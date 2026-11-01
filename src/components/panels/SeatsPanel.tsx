@@ -11,12 +11,14 @@ export function SeatsPanel({
   members,
   viewerId,
   onTakeSeat,
+  onReleaseSeat,
   onClose,
 }: {
   seats: SeatCell[];
   members: Member[];
   viewerId?: string;
   onTakeSeat: (row: number, col: number) => void;
+  onReleaseSeat?: () => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -32,10 +34,17 @@ export function SeatsPanel({
       }
       onClose={onClose}
       footer={
-        <p className="hint" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Armchair size={13} aria-hidden="true" />
-          {t("seats.hint")}
-        </p>
+        <div style={{ display: "grid", gap: 8 }}>
+          <p className="hint" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Armchair size={13} aria-hidden="true" />
+            {t("seats.hint")}
+          </p>
+          {mine?.seatId && onReleaseSeat ? (
+            <button type="button" className="btn btn-secondary btn-block" onClick={onReleaseSeat}>
+              {t("seats.release")}
+            </button>
+          ) : null}
+        </div>
       }
     >
       <div className="seat-map">

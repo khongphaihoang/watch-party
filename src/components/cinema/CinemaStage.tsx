@@ -17,12 +17,11 @@ export function CinemaStage({
   members,
   nowPlaying,
   ui,
-  viewerName,
   viewerSeatId,
-  hasQueue,
+  isHost,
   speakingIds,
   onSeatSelect,
-  onPlayNext,
+  onOpenVideoPicker,
 }: {
   tier: ViewportTier;
   viewpoint: Viewpoint;
@@ -31,12 +30,11 @@ export function CinemaStage({
   members: Member[];
   nowPlaying: NowPlaying | null;
   ui: UiStatus;
-  viewerName: string;
   viewerSeatId?: string;
-  hasQueue: boolean;
+  isHost: boolean;
   speakingIds: string[];
   onSeatSelect: (row: number, col: number) => void;
-  onPlayNext: () => void;
+  onOpenVideoPicker: () => void;
 }) {
   const t = useT();
   const membersById = useMemo(
@@ -89,9 +87,8 @@ export function CinemaStage({
           <ScreenSurface
             nowPlaying={nowPlaying}
             ui={ui}
-            viewerName={viewerName}
-            hasQueue={hasQueue}
-            onPlayNext={onPlayNext}
+            isHost={isHost}
+            onOpenVideoPicker={onOpenVideoPicker}
           />
         </div>
 
