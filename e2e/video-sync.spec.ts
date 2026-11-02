@@ -85,6 +85,40 @@ test("Chủ rạp tạm dừng và khách nhận trạng thái tạm dừng", as
   await guestContext.close();
 });
 
+test("Chủ rạp tua video, khách nhận đúng vị trí", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  await installFakeYouTube(hostContext);
+  const hostPage = await hostContext.newPage();
+  const code = await createRoomThroughUi(hostPage, "Phòng tua video");
+
+  const guestContext = await browser.newContext();
+  await installFakeYouTube(guestContext);
+  const guestPage = await guestContext.newPage();
+  await signUp(guestContext, "Khách tua video");
+  await joinByLink(guestPage, code);
+  await expect.poll(async () => (await fakePlayer(guestPage))?.playing).toBe(true);
+
+  const slider = hostPage.getByRole("slider", { name: "Tua video" });
+  await expect(slider).toBeVisible();
+  const beforeSeeks = await fakeSeekCount(guestPage);
+
+  const sliderBox = await slider.boundingBox();
+  expect(sliderBox).not.toBeNull();
+  await hostPage.mouse.click(
+    sliderBox!.x + sliderBox!.width * 0.4,
+    sliderBox!.y + sliderBox!.height / 2,
+  );
+
+  await expect
+    .poll(async () => (await fakePlayer(guestPage))?.position ?? 0)
+    .toBeGreaterThan(85);
+  await expect.poll(async () => fakeSeekCount(guestPage)).toBeGreaterThan(beforeSeeks);
+  expect((await roomSnapshot(hostContext, code)).nowPlaying?.state).toBe("playing");
+
+  await hostContext.close();
+  await guestContext.close();
+});
+
 test("Khách không thể gọi API điều khiển phát", async ({ browser }) => {
   const hostContext = await browser.newContext();
   await installFakeYouTube(hostContext);

@@ -166,6 +166,7 @@ interface RoomStore {
   sendChat: (body: string) => Promise<void>;
   retryChat: (localId: string) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
+  reloadChat: () => Promise<void>;
   applyChatMessage: (message: ChatMessage) => void;
   markChatRead: () => void;
   applyNotice: (notice: RoomNotice) => void;
@@ -464,9 +465,15 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         if (seq !== bootstrapSeq) return;
         get().applySnapshot(snapshot, true);
         set({ bootstrapped: true });
-        unsubscribeSnapshots = subscribeRoomSnapshots(snapshot.code, (next) => {
-          get().applySnapshot(next, false);
-        });
+        unsubscribeSnapshots = subscribeRoomSnapshots(
+          snapshot.code,
+          (next) => {
+            get().applySnapshot(next, false);
+          },
+          () => {
+            void get().reloadChat();
+          },
+        );
         unsubscribeVideo = subscribeVideoState(snapshot.code, (event) => {
           get().applyVideoState(event);
         });
@@ -927,6 +934,33 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     } catch (error) {
       const current = get().room;
       if (current) set({ room: { ...current, chatLoading: false } });
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  reloadChat: async () => {
+    const room = get().room;
+    if (!room || room.chatLoading) return;
+    try {
+      // Không truyền `before`: cần trang mới nhất để bù tin bị lỡ khi mất socket.
+      const page = await apiFetchMessages(room.code, { limit: CHAT_PAGE_SIZE });
+      const current = get().room;
+      if (!current || current.code !== room.code) return;
+      set({
+        room: {
+          ...current,
+          messages: mergeMessages(
+            current.messages,
+            page.messages.map(toChatMessage),
+          ),
+          chatCursor: current.chatCursor ?? page.nextBefore ?? null,
+          chatHasMore: current.chatHasMore || Boolean(page.nextBefore),
+        },
+      });
+    } catch (error) {
       get().pushToast(
         isApiError(error) ? error.message : t("toast.networkError"),
         "danger",

@@ -126,6 +126,50 @@ test("Gửi lỗi khi mất mạng và gửi lại không nhân đôi tin", asyn
     .toHaveLength(1);
 });
 
+test("Reconnect tải lại chat và hàng chờ bị lỡ", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  await installFakeYouTube(hostContext);
+  const hostPage = await hostContext.newPage();
+  const code = await createRoomThroughUi(hostPage, "Phòng reconnect");
+
+  const guestContext = await browser.newContext();
+  await installFakeYouTube(guestContext);
+  const guestPage = await guestContext.newPage();
+  await signUp(guestContext, "Khách Reconnect");
+
+  // Proxy WebSocket để chủ động đóng đúng socket của khách. `context.setOffline`
+  // chỉ chặn fetch, không đóng WebSocket đang mở.
+  let connections = 0;
+  let activeClient: { close: (options?: { code?: number; reason?: string }) => Promise<void> } | null =
+    null;
+  let activeServer: { close: (options?: { code?: number; reason?: string }) => Promise<void> } | null =
+    null;
+  await guestPage.routeWebSocket(/socket\.io/, (ws) => {
+    connections += 1;
+    activeClient = ws;
+    activeServer = ws.connectToServer();
+  });
+
+  await joinByLink(guestPage, code);
+  await expect.poll(() => connections).toBeGreaterThan(0);
+  await openPanel(guestPage, "Trò chuyện");
+
+  await activeClient!.close({ code: 1011, reason: "audit-drop" });
+  await activeServer!.close({ code: 1011, reason: "audit-drop" });
+  await guestPage.waitForTimeout(300);
+  await sendChat(hostPage, "Tin gửi khi khách mất socket");
+  await addToQueue(hostPage, `https://youtu.be/${QUEUED_VIDEO_ID}`);
+
+  await expect.poll(() => connections, { timeout: 20000 }).toBeGreaterThan(1);
+  await expect(guestPage.locator(".chat-msg__text").last()).toHaveText(
+    "Tin gửi khi khách mất socket",
+    { timeout: 5000 },
+  );
+
+  await openPanel(guestPage, "Hàng chờ");
+  await expect(guestPage.locator(".sheet.panel .row-item")).toHaveCount(1);
+});
+
 test("Thành viên thêm video vào hàng chờ, chủ rạp xoá được", async ({ browser }) => {
   const hostContext = await browser.newContext();
   await installFakeYouTube(hostContext);

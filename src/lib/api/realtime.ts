@@ -105,14 +105,22 @@ export async function pingServer(timeoutMs = 2500): Promise<PingSample | null> {
 export function subscribeRoomSnapshots(
   code: string,
   onSnapshot: (snapshot: ApiRoomSnapshot) => void,
+  onReconnect?: () => void,
 ): () => void {
   const active = getSocket();
   const joined = code.toUpperCase();
+  let connectedOnce = false;
 
   const handleSnapshot = (snapshot: ApiRoomSnapshot) => {
     if (snapshot.code?.toUpperCase() === joined) onSnapshot(snapshot);
   };
-  const announce = () => active.emit("room:join", { code: joined });
+  const announce = () => {
+    active.emit("room:join", { code: joined });
+    // `room:snapshot` chỉ chứa trạng thái phòng, không chứa lịch sử chat.
+    // Sau khi mất socket, client phải tự tải lại trang chat mới nhất.
+    if (connectedOnce) onReconnect?.();
+    connectedOnce = true;
+  };
 
   active.on("room:snapshot", handleSnapshot);
   active.on("connect", announce);
