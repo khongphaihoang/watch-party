@@ -21,14 +21,18 @@ export function MembersPanel({
   room,
   onClose,
   onKick,
+  onSetRole,
 }: {
   room: RoomState;
   onClose: () => void;
   onKick?: (memberId: string) => void;
+  onSetRole?: (memberId: string, role: "cohost" | "viewer") => void;
 }) {
   const t = useT();
   const viewer = room.members.find((member) => member.id === room.viewerId);
-  const canKick = Boolean(viewer?.isHost && onKick);
+  const isHost = Boolean(viewer?.isHost);
+  const canKick = Boolean(isHost && onKick);
+  const canSetRole = Boolean(isHost && onSetRole);
 
   return (
     <PanelShell
@@ -43,39 +47,63 @@ export function MembersPanel({
         <p className="hint">{t("members.empty")}</p>
       ) : (
         <ul className="list">
-          {room.members.map((member) => (
-            <li key={member.id} className="row-item">
-              <span
-                className="chat-msg__avatar"
-                style={{ background: member.shirtColor }}
-                aria-hidden="true"
-              >
-                {initials(member.displayName)}
-              </span>
-              <span className="row-item__main">
-                <span className="row-item__title">{member.displayName}</span>
-                <span className="row-item__meta">
-                  {member.seatId ? describeSeat(member.seatId, t) : t("members.noSeat")}
-                </span>
-              </span>
-              {member.isHost ? (
-                <span className="chip chip--warn">
-                  <BadgeCheck size={11} aria-hidden="true" /> {t("members.host")}
-                </span>
-              ) : null}
-              {canKick && !member.isHost && member.id !== room.viewerId ? (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  onClick={() => onKick?.(member.id)}
-                  aria-label={t("members.kickAria", { name: member.displayName })}
-                  title={t("members.kick")}
+          {room.members.map((member) => {
+            const isCohost = !member.isHost && member.role === "cohost";
+            return (
+              <li key={member.id} className="row-item">
+                <span
+                  className="chat-msg__avatar"
+                  style={{ background: member.shirtColor }}
+                  aria-hidden="true"
                 >
-                  <UserMinus size={15} aria-hidden="true" />
-                </button>
-              ) : null}
-            </li>
-          ))}
+                  {initials(member.displayName)}
+                </span>
+                <span className="row-item__main">
+                  <span className="row-item__title">{member.displayName}</span>
+                  <span className="row-item__meta">
+                    {member.seatId ? describeSeat(member.seatId, t) : t("members.noSeat")}
+                  </span>
+                </span>
+                {member.isHost ? (
+                  <span className="chip chip--warn">
+                    <BadgeCheck size={11} aria-hidden="true" /> {t("members.host")}
+                  </span>
+                ) : null}
+                {isCohost ? (
+                  <span className="chip">
+                    <BadgeCheck size={11} aria-hidden="true" /> {t("members.cohost")}
+                  </span>
+                ) : null}
+                {canSetRole && member.id !== room.viewerId && !member.isHost ? (
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() =>
+                      onSetRole?.(member.id, isCohost ? "viewer" : "cohost")
+                    }
+                    aria-label={t(
+                      isCohost ? "members.makeViewer" : "members.makeCohost",
+                      { name: member.displayName },
+                    )}
+                    aria-pressed={isCohost}
+                  >
+                    <BadgeCheck size={15} aria-hidden="true" />
+                  </button>
+                ) : null}
+                {canKick && !member.isHost && member.id !== room.viewerId ? (
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => onKick?.(member.id)}
+                    aria-label={t("members.kickAria", { name: member.displayName })}
+                    title={t("members.kick")}
+                  >
+                    <UserMinus size={15} aria-hidden="true" />
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </PanelShell>
@@ -191,15 +219,19 @@ const DEMO_STATES: Array<{ labelKey: MessageKey; ui?: UiStatus }> = [
 export function SettingsPanel({
   room,
   demoVoice,
+  noticesOn,
   onSetUi,
   onToggleDemoVoice,
+  onToggleNotices,
   onDemoJoin,
   onClose,
 }: {
   room: RoomState;
   demoVoice: boolean;
+  noticesOn: boolean;
   onSetUi: (ui: UiStatus) => void;
   onToggleDemoVoice: () => void;
+  onToggleNotices: () => void;
   onDemoJoin: () => void;
   onClose: () => void;
 }) {
@@ -284,6 +316,25 @@ export function SettingsPanel({
       >
         <Mic size={15} aria-hidden="true" />
         {demoVoice ? t("settings.micOn") : t("settings.micOff")}
+      </button>
+
+      <div className="row-item">
+        <span style={{ color: noticesOn ? "var(--accent)" : "var(--text-faint)" }}>
+          <ListChecks size={18} aria-hidden="true" />
+        </span>
+        <span className="row-item__main">
+          <span className="row-item__title">{t("settings.notices")}</span>
+          <span className="row-item__meta">{t("settings.noticesHint")}</span>
+        </span>
+      </div>
+      <button
+        type="button"
+        className={`btn btn-block ${noticesOn ? "btn-gold" : "btn-secondary"}`}
+        aria-pressed={noticesOn}
+        onClick={onToggleNotices}
+      >
+        <ListChecks size={15} aria-hidden="true" />
+        {t("settings.notices")}
       </button>
     </PanelShell>
   );

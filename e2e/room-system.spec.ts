@@ -224,7 +224,7 @@ test("Chủ rạp kick khách, khách không còn trong danh sách", async ({ br
   await expect(hostPage.locator(".occupancy strong")).toHaveText("2");
 
   await hostPage.getByRole("button", { name: "Xem thành viên" }).click();
-  const kickButton = hostPage.locator(".panel .row-item .icon-btn");
+  const kickButton = hostPage.getByRole("button", { name: /^Mời .* ra khỏi phòng$/ });
   await expect(kickButton).toHaveCount(1);
   await kickButton.click();
 
@@ -252,9 +252,14 @@ test("Khách không thấy nút quản trị và API từ chối quyền host", 
   await joinByLink(guestPage, code);
   await expect(guestPage.locator(".occupancy strong")).toHaveText("2");
 
-  // Chủ rạp thấy đủ hai thao tác quản trị.
+  // Chủ rạp thấy đủ hai thao tác quản trị: cấp đồng chủ + mời ra.
   const hostPanel = await openMembersPanel(hostPage);
-  await expect(hostPanel.locator(".row-item .icon-btn")).toHaveCount(1);
+  await expect(
+    hostPanel.getByRole("button", { name: /^Cấp quyền đồng chủ cho/ }),
+  ).toHaveCount(1);
+  await expect(
+    hostPanel.getByRole("button", { name: /^Mời .* ra khỏi phòng$/ }),
+  ).toHaveCount(1);
   await hostPanel.locator(".sheet__head button").click();
   await hostPage.getByRole("button", { name: "Thông tin phòng" }).first().click();
   await expect(hostPage.getByRole("button", { name: "Đóng phòng" })).toBeVisible();

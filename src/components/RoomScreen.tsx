@@ -16,8 +16,7 @@ import { QueuePanel } from "@/components/panels/QueuePanel";
 import { SeatsPanel } from "@/components/panels/SeatsPanel";
 import { WardrobePanel } from "@/components/panels/WardrobePanel";
 import { BoostPanel } from "@/components/panels/Panels";
-import { useRoomStore } from "@/lib/room-store";
-import { useT } from "@/lib/i18n";
+import { canManageQueue, useRoomStore } from "@/lib/room-store";import { useT } from "@/lib/i18n";
 import {
   CLOCK_REFRESH_MS,
   CLOCK_SAMPLES,
@@ -69,12 +68,18 @@ export function RoomScreen({ code }: { code: string }) {
     kickMember,
     closeRoom,
     refresh,
-    sendMessage,
-    toggleSkipVote,
-    enqueue,
-    dequeue,
-    playUrl,
+    sendChat,
+    retryChat,
+    loadMoreMessages,
+    castSkipVote,
+    withdrawSkipVote,
+    addQueueItem,
+    removeQueueItem,
+    moveQueueItem,
+    playNextInQueue,
     playQueueItem,
+    setMemberRole,
+    playUrl,
     playVideo,
     pauseVideo,
     seekVideo,
@@ -91,8 +96,10 @@ export function RoomScreen({ code }: { code: string }) {
     setUiHidden,
     speakingIds,
     demoVoice,
+    noticesOn,
     setSpeaking,
     toggleDemoVoice,
+    toggleNotices,
   } = useRoomStore();
 
   const t = useT();
@@ -290,8 +297,13 @@ export function RoomScreen({ code }: { code: string }) {
 
   const handleSend = useCallback(() => {
     if (draft.trim().length === 0) return;
-    sendMessage(draft);
-  }, [draft, sendMessage]);
+    void sendChat(draft);
+  }, [draft, sendChat]);
+
+  const handleToggleSkipVote = useCallback(() => {
+    if (room?.skipVote?.voted) void withdrawSkipVote();
+    else void castSkipVote();
+  }, [castSkipVote, room?.skipVote?.voted, withdrawSkipVote]);
 
   const handleLeave = useCallback(async () => {
     await leaveRoom();
@@ -441,7 +453,7 @@ export function RoomScreen({ code }: { code: string }) {
         collapsed={infoCollapsed}
         isHost={Boolean(viewer?.isHost)}
         onToggleCollapsed={toggleInfo}
-        onToggleSkipVote={toggleSkipVote}
+        onToggleSkipVote={handleToggleSkipVote}
         onPlay={(positionSec) => void playVideo(positionSec)}
         onPause={(positionSec) => void pauseVideo(positionSec)}
         onSeek={(positionSec) => void seekVideo(positionSec)}
@@ -499,6 +511,8 @@ export function RoomScreen({ code }: { code: string }) {
           draft={draft}
           onDraftChange={setDraft}
           onSend={handleSend}
+          onLoadOlder={() => void loadMoreMessages()}
+          onRetry={(localId) => void retryChat(localId)}
           onClose={() => setPanel(null)}
         />
       ) : null}
@@ -507,8 +521,11 @@ export function RoomScreen({ code }: { code: string }) {
         <QueuePanel
           room={room}
           isHost={Boolean(viewer?.isHost)}
-          onEnqueue={enqueue}
-          onDequeue={dequeue}
+          canManage={canManageQueue(room)}
+          onAdd={addQueueItem}
+          onRemove={(id) => void removeQueueItem(id)}
+          onMove={(id, direction) => void moveQueueItem(id, direction)}
+          onPlayNext={() => void playNextInQueue()}
           onPlayNow={playUrl}
           onPlayItem={(id) => void playQueueItem(id)}
           onClose={() => setPanel(null)}
@@ -535,7 +552,12 @@ export function RoomScreen({ code }: { code: string }) {
       ) : null}
 
       {panel === "members" ? (
-        <MembersPanel room={room} onClose={() => setPanel(null)} onKick={kickMember} />
+        <MembersPanel
+          room={room}
+          onClose={() => setPanel(null)}
+          onKick={kickMember}
+          onSetRole={(memberId, role) => void setMemberRole(memberId, role)}
+        />
       ) : null}
 
       {panel === "info" ? (
@@ -556,8 +578,10 @@ export function RoomScreen({ code }: { code: string }) {
         <SettingsPanel
           room={room}
           demoVoice={demoVoice}
+          noticesOn={noticesOn}
           onSetUi={setUiStatus}
           onToggleDemoVoice={toggleDemoVoice}
+          onToggleNotices={toggleNotices}
           onDemoJoin={() => pushToast(t("room.welcome"), "ok")}
           onClose={() => setPanel(null)}
         />

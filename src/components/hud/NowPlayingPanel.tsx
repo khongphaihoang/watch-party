@@ -234,7 +234,12 @@ export function NowPlayingPanel({
                   total: room.skipVote.total,
                 })}
               </span>
-              <span style={{ color: "var(--text-faint)" }}>{t("nowPlaying.needHalf")}</span>
+              <span style={{ color: "var(--text-faint)" }}>
+                {t("nowPlaying.needVotes", {
+                  threshold: room.skipVote.threshold,
+                  total: room.skipVote.total,
+                })}
+              </span>
             </div>
             <button
               type="button"

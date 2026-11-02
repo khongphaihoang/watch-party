@@ -3,6 +3,20 @@
 import { create } from "zustand";
 import { isApiError } from "./api/client";
 import {
+  addQueueItem as apiAddQueueItem,
+  castSkipVote as apiCastSkipVote,
+  fetchMessages as apiFetchMessages,
+  playNextInQueue as apiPlayNext,
+  playQueueItem as apiPlayQueueItem,
+  removeQueueItem as apiRemoveQueueItem,
+  reorderQueue as apiReorderQueue,
+  sendChatMessage as apiSendChatMessage,
+  setMemberRole as apiSetMemberRole,
+  withdrawSkipVote as apiWithdrawSkipVote,
+} from "./api/interaction";
+import {
+  subscribeChatMessages,
+  subscribeNotices,
   subscribeRoomSnapshots,
   subscribeVideoState,
   type VideoStateEvent,
@@ -22,14 +36,35 @@ import {
   reportVideoError as apiReportVideoError,
   seekVideo as apiSeekVideo,
 } from "./api/rooms";
-import type { ApiMember, ApiRoomSnapshot } from "./api/types";
+import type {
+  ApiChatMessage,
+  ApiMember,
+  ApiQueueItem,
+  ApiRoomSnapshot,
+  ApiSkipVote,
+} from "./api/types";
 import { useAuthStore } from "./auth-store";
+import { LOCAL_PREFIX, mergeMessages, prependHistory } from "./chat-sync";
 import { t } from "./i18n";
 import { createLocalRoomData } from "./local-room";
+import {
+  describeNotice,
+  rememberNoticeId,
+  shouldShowNotice,
+  type RoomNotice,
+} from "./notices";
+import {
+  applyOrder,
+  isStaleQueue,
+  moveOrder,
+  queueOrder,
+} from "./queue-sync";
+import { mergeSkipVote } from "./skip-vote";
 import { parseYouTubeId } from "./youtube";
 import type {
   ChatMessage,
   Member,
+  MemberRole,
   NowPlaying,
   PanelId,
   PlaybackErrorCode,
@@ -80,6 +115,10 @@ interface RoomStore {
   speakingIds: string[];
   /** Phase 1: giả lập mic để thấy hiệu ứng sóng âm. Tắt được trong Cài đặt. */
   demoVoice: boolean;
+  /** Tắt toast thông báo trong rạp (không ảnh hưởng dữ liệu/sự kiện). */
+  noticesOn: boolean;
+  /** Id notice đã hiện, chống lặp khi cùng sự kiện tới hai lần. */
+  noticeSeen: string[];
 
   bootstrap: (code: string) => Promise<void>;
   applySnapshot: (snapshot: ApiRoomSnapshot, adoptViewer: boolean) => void;
@@ -115,19 +154,31 @@ interface RoomStore {
   dismissToast: (id: number) => void;
   setSpeaking: (memberIds: string[]) => void;
   toggleDemoVoice: () => void;
+  toggleNotices: () => void;
 
   takeSeat: (row: number, col: number) => void;
   releaseSeat: () => Promise<void>;
   leaveRoom: () => Promise<void>;
   kickMember: (memberId: string) => Promise<void>;
   closeRoom: () => Promise<void>;
-  sendMessage: (body: string) => void;
+  setMemberRole: (memberId: string, role: Exclude<MemberRole, "host">) => Promise<void>;
+
+  sendChat: (body: string) => Promise<void>;
+  retryChat: (localId: string) => Promise<void>;
+  loadMoreMessages: () => Promise<void>;
+  applyChatMessage: (message: ChatMessage) => void;
   markChatRead: () => void;
-  toggleSkipVote: () => void;
-  enqueue: (url: string) => boolean;
-  dequeue: (id: string) => void;
-  playUrl: (url: string, isLive?: boolean) => Promise<boolean>;
+  applyNotice: (notice: RoomNotice) => void;
+
+  castSkipVote: () => Promise<void>;
+  withdrawSkipVote: () => Promise<void>;
+
+  addQueueItem: (url: string) => Promise<boolean>;
+  removeQueueItem: (id: string) => Promise<void>;
+  moveQueueItem: (id: string, direction: -1 | 1) => Promise<void>;
+  playNextInQueue: () => Promise<void>;
   playQueueItem: (id: string) => Promise<void>;
+  playUrl: (url: string, isLive?: boolean) => Promise<boolean>;
   setUiStatus: (ui: UiStatus) => void;
   updateViewerProfile: (displayName: string, shirtColor?: string) => void;
 }
@@ -138,9 +189,21 @@ let bootstrapAbort: AbortController | null = null;
 let bootstrappingCode: string | null = null;
 let unsubscribeSnapshots: (() => void) | null = null;
 let unsubscribeVideo: (() => void) | null = null;
+let unsubscribeChat: (() => void) | null = null;
+let unsubscribeNotices: (() => void) | null = null;
+
+const CHAT_PAGE_SIZE = 50;
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function newClientMessageId(): string {
+  const random =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `c-${Date.now().toString(36)}-${random}`;
 }
 
 function applySeatStatuses(
@@ -170,7 +233,97 @@ function toMember(member: ApiMember): Member {
     seatId: member.seatId,
     frameTier: member.frameTier,
     micOn: member.micOn,
+    role: member.role ?? (member.isHost ? "host" : "viewer"),
   };
+}
+
+function toQueueItem(item: ApiQueueItem): QueueItem {
+  return {
+    id: item.id,
+    videoId: item.videoId,
+    title: item.title,
+    channelTitle: item.channelTitle,
+    durationSec: item.durationSec,
+    addedBy: item.addedBy,
+    addedById: item.addedById,
+    isLive: item.isLive,
+    createdAt: item.createdAt,
+    position: item.position,
+  };
+}
+
+function toSkipVote(vote: ApiSkipVote | null | undefined) {
+  if (!vote) return null;
+  return {
+    videoId: vote.videoId,
+    yes: vote.yes,
+    total: vote.total,
+    threshold: vote.threshold,
+    passed: vote.passed,
+    version: vote.version,
+    voted: vote.voted,
+  };
+}
+
+function toChatMessage(message: ApiChatMessage): ChatMessage {
+  return {
+    id: message.id,
+    memberId: message.memberId,
+    displayName: message.displayName,
+    kind: message.kind,
+    body: message.body,
+    createdAt: message.createdAt,
+    clientMessageId: message.clientMessageId ?? undefined,
+    status: "sent",
+  };
+}
+
+/** Viewer có được quản lý hàng chờ (HOST hoặc COHOST) hay không. */
+export function canManageQueue(room: RoomState | null): boolean {
+  if (!room) return false;
+  const viewer = room.members.find((member) => member.id === room.viewerId);
+  if (!viewer) return false;
+  return viewer.isHost || viewer.role === "host" || viewer.role === "cohost";
+}
+
+/**
+ * Gửi tin đã nằm trong store dưới dạng `local:`. Thành công thì thay bằng bản của
+ * server (khớp theo `clientMessageId`); lỗi mạng/5xx để "failed" cho người dùng thử
+ * lại (giữ nguyên `clientMessageId` nên không nhân đôi); lỗi nghiệp vụ thì bỏ tin.
+ */
+async function deliverChatMessage(code: string, local: ChatMessage): Promise<void> {
+  try {
+    const saved = await apiSendChatMessage(code, {
+      body: local.body,
+      kind: local.kind === "emoji" ? "emoji" : "text",
+      clientMessageId: local.clientMessageId,
+    });
+    const current = useRoomStore.getState().room;
+    if (!current || current.code !== code) return;
+    useRoomStore.setState({
+      room: {
+        ...current,
+        messages: mergeMessages(current.messages, [toChatMessage(saved)]),
+      },
+    });
+  } catch (error) {
+    const current = useRoomStore.getState().room;
+    if (!current || current.code !== code) return;
+    const status = isApiError(error) ? error.status : 0;
+    const rejected = status >= 400 && status < 500 && status !== 429;
+    const messages = rejected
+      ? current.messages.filter((entry) => entry.id !== local.id)
+      : current.messages.map((entry) =>
+          entry.id === local.id ? { ...entry, status: "failed" as const } : entry,
+        );
+    useRoomStore.setState({ room: { ...current, messages } });
+    useRoomStore
+      .getState()
+      .pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+  }
 }
 
 function toNowPlaying(now: ApiRoomSnapshot["nowPlaying"]): NowPlaying | null {
@@ -205,9 +358,13 @@ function emptyRoom(code: string, ui: UiStatus): RoomState {
     nowPlaying: null,
     seats: [],
     members: [],
-    queue: local.queue,
-    messages: local.messages,
-    skipVote: local.skipVote,
+    queue: [],
+    queueVersion: 0,
+    messages: [],
+    chatHasMore: false,
+    chatCursor: null,
+    chatLoading: false,
+    skipVote: null,
     ui,
     serverOffsetMs: 0,
     walletPoints: local.walletPoints,
@@ -261,6 +418,8 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   toasts: [],
   speakingIds: [],
   demoVoice: true,
+  noticesOn: true,
+  noticeSeen: [],
 
   bootstrap: async (code) => {
     const seq = ++bootstrapSeq;
@@ -274,6 +433,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     unsubscribeSnapshots = null;
     unsubscribeVideo?.();
     unsubscribeVideo = null;
+    unsubscribeChat?.();
+    unsubscribeChat = null;
+    unsubscribeNotices?.();
+    unsubscribeNotices = null;
 
     // Chống dữ liệu phòng cũ khi đổi mã.
     set({
@@ -285,6 +448,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       speakingIds: [],
       clockSynced: false,
       playerDurationSec: 0,
+      noticeSeen: [],
     });
 
     try {
@@ -306,6 +470,14 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         unsubscribeVideo = subscribeVideoState(snapshot.code, (event) => {
           get().applyVideoState(event);
         });
+        unsubscribeChat = subscribeChatMessages(snapshot.code, (event) => {
+          get().applyChatMessage(toChatMessage(event));
+        });
+        unsubscribeNotices = subscribeNotices(snapshot.code, (event) => {
+          get().applyNotice(event);
+        });
+        // Lịch sử chat không đi kèm snapshot (có thể rất dài) → tải trang mới nhất.
+        void get().loadMoreMessages();
       } catch (error) {
         if (isAbort(error) || seq !== bootstrapSeq) return;
         const ui = uiFromError(error);
@@ -340,6 +512,14 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const nowPlaying = snapshot.nowPlaying
       ? pickNewerNowPlaying(local.nowPlaying, toNowPlaying(snapshot.nowPlaying))
       : null;
+
+    const incomingQueue = (snapshot.queue ?? []).map(toQueueItem);
+    const incomingVersion = snapshot.queueVersion ?? local.queueVersion;
+    const queueStale = isStaleQueue(local.queueVersion, incomingVersion);
+    const skipVote = mergeSkipVote(local.skipVote, toSkipVote(snapshot.skipVote), {
+      adoptVoted: adoptViewer,
+    });
+
     const room: RoomState = {
       ...local,
       code: snapshot.code,
@@ -348,10 +528,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       capacity: snapshot.capacity,
       viewerId,
       nowPlaying,
+      queue: queueStale ? local.queue : incomingQueue,
+      queueVersion: queueStale ? local.queueVersion : incomingVersion,
       skipVote:
-        nowPlaying && local.skipVote?.videoId === nowPlaying.videoId
-          ? local.skipVote
-          : null,
+        nowPlaying && skipVote?.videoId === nowPlaying.videoId ? skipVote : null,
       members,
       seats: [],
       ui,
@@ -452,6 +632,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       demoVoice: !state.demoVoice,
       speakingIds: state.demoVoice ? [] : state.speakingIds,
     })),
+  toggleNotices: () => set((state) => ({ noticesOn: !state.noticesOn })),
   toggleSound: () =>
     set((state) => {
       const soundOn = !state.soundOn;
@@ -614,6 +795,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     unsubscribeSnapshots = null;
     unsubscribeVideo?.();
     unsubscribeVideo = null;
+    unsubscribeChat?.();
+    unsubscribeChat = null;
+    unsubscribeNotices?.();
+    unsubscribeNotices = null;
     set({ panel: null });
     if (!room?.code) return;
     // Không xoá `room` ở đây: RoomScreen còn mounted và effect bootstrap sẽ
@@ -656,47 +841,153 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     }
   },
 
-  sendMessage: (body) => {
+  setMemberRole: async (memberId, role) => {
+    const room = get().room;
+    if (!room) return;
+    try {
+      const snapshot = await apiSetMemberRole(room.code, memberId, role);
+      get().applySnapshot(snapshot, false);
+      const name =
+        snapshot.members.find((member) => member.id === memberId)?.displayName ?? "";
+      get().pushToast(
+        t(role === "cohost" ? "toast.roleCohost" : "toast.roleViewer", { name }),
+        "ok",
+      );
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  sendChat: async (body) => {
+    const room = get().room;
     const text = body.trim();
-    const { room } = get();
     if (!room || text.length === 0) return;
+    const clientMessageId = newClientMessageId();
     const viewer = room.members.find((member) => member.id === room.viewerId);
-    const message: ChatMessage = {
-      id: `msg-local-${Date.now()}`,
+    const local: ChatMessage = {
+      id: `${LOCAL_PREFIX}${clientMessageId}`,
       memberId: room.viewerId,
       displayName: viewer?.displayName || t("common.you"),
       kind: "text",
-      body: text.slice(0, 200),
+      body: text,
       createdAt: Date.now(),
+      clientMessageId,
+      status: "sending",
     };
-    set({ room: { ...room, messages: [...room.messages, message] }, chatDraft: "" });
+    set({
+      room: { ...room, messages: mergeMessages(room.messages, [local]) },
+      chatDraft: "",
+    });
+    await deliverChatMessage(room.code, local);
+  },
+
+  retryChat: async (localId) => {
+    const room = get().room;
+    if (!room) return;
+    const message = room.messages.find((entry) => entry.id === localId);
+    if (!message?.clientMessageId) return;
+    const retry: ChatMessage = { ...message, status: "sending" };
+    set({
+      room: {
+        ...room,
+        messages: room.messages.map((entry) => (entry.id === localId ? retry : entry)),
+      },
+    });
+    await deliverChatMessage(room.code, retry);
+  },
+
+  loadMoreMessages: async () => {
+    const room = get().room;
+    if (!room || room.chatLoading) return;
+    // `before` là cursor mờ của server, không phải id tin nhắn.
+    const before = room.chatCursor ?? undefined;
+    set({ room: { ...room, chatLoading: true } });
+    try {
+      const page = await apiFetchMessages(room.code, {
+        limit: CHAT_PAGE_SIZE,
+        before,
+      });
+      const current = get().room;
+      if (!current || current.code !== room.code) return;
+      const incoming = page.messages.map(toChatMessage);
+      set({
+        room: {
+          ...current,
+          messages: before
+            ? prependHistory(current.messages, incoming)
+            : mergeMessages(current.messages, incoming),
+          chatCursor: page.nextBefore ?? null,
+          chatHasMore: Boolean(page.nextBefore),
+          chatLoading: false,
+        },
+      });
+    } catch (error) {
+      const current = get().room;
+      if (current) set({ room: { ...current, chatLoading: false } });
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  applyChatMessage: (message) => {
+    const room = get().room;
+    if (!room) return;
+    if (room.messages.some((entry) => entry.id === message.id)) return;
+    const fromOther = message.memberId !== room.viewerId;
+    set({
+      room: { ...room, messages: mergeMessages(room.messages, [message]) },
+      unread: fromOther && get().panel !== "chat" ? get().unread + 1 : get().unread,
+    });
   },
 
   markChatRead: () => set({ unread: 0 }),
 
-  toggleSkipVote: () => {
-    const { room } = get();
+  applyNotice: (notice) => {
+    const { room, noticeSeen, noticesOn } = get();
     if (!room) return;
-    const base =
-      room.skipVote ??
-      ({
-        videoId: room.nowPlaying?.videoId ?? "",
-        yes: 0,
-        total: room.members.length,
-        voted: false,
-      } as const);
-    const voted = !base.voted;
-    const yes = base.yes + (voted ? 1 : -1);
-    set({
-      room: {
-        ...room,
-        skipVote: { ...base, voted, yes: Math.max(0, yes) },
-      },
-    });
-    get().pushToast(t(voted ? "toast.skipVoted" : "toast.skipWithdrawn"), "info");
+    if (!shouldShowNotice(notice, room.viewerId, new Set(noticeSeen))) return;
+    set({ noticeSeen: [...rememberNoticeId(new Set(noticeSeen), notice.id)] });
+    if (!noticesOn) return;
+    const descriptor = describeNotice(notice);
+    if (!descriptor) return;
+    get().pushToast(t(descriptor.key, descriptor.params), descriptor.tone);
   },
 
-  enqueue: (url) => {
+  castSkipVote: async () => {
+    const room = get().room;
+    const videoId = room?.nowPlaying?.videoId;
+    if (!room || !videoId) return;
+    try {
+      const snapshot = await apiCastSkipVote(room.code, videoId);
+      get().applySnapshot(snapshot, true);
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  withdrawSkipVote: async () => {
+    const room = get().room;
+    if (!room) return;
+    try {
+      const snapshot = await apiWithdrawSkipVote(room.code);
+      get().applySnapshot(snapshot, true);
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  addQueueItem: async (url) => {
     const { room } = get();
     if (!room) return false;
     const videoId = parseYouTubeId(url);
@@ -704,25 +995,71 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       get().pushToast(t("toast.invalidLink"), "danger");
       return false;
     }
-    const viewer = room.members.find((member) => member.id === room.viewerId);
-    const item: QueueItem = {
-      id: `q-local-${Date.now()}`,
-      videoId,
-      title: t("store.placeholderVideoTitle"),
-      channelTitle: t("store.placeholderChannel"),
-      durationSec: 0,
-      addedBy: viewer?.displayName || t("common.you"),
-      isLive: false,
-    };
-    set({ room: { ...room, queue: [...room.queue, item] } });
-    get().pushToast(t("toast.videoAdded"), "ok");
-    return true;
+    try {
+      const snapshot = await apiAddQueueItem(room.code, { videoId });
+      get().applySnapshot(snapshot, true);
+      get().pushToast(t("toast.videoAdded"), "ok");
+      return true;
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+      return false;
+    }
   },
 
-  dequeue: (id) => {
-    const { room } = get();
+  removeQueueItem: async (id) => {
+    const room = get().room;
     if (!room) return;
-    set({ room: { ...room, queue: room.queue.filter((item) => item.id !== id) } });
+    try {
+      const snapshot = await apiRemoveQueueItem(room.code, id);
+      get().applySnapshot(snapshot, true);
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
+  },
+
+  moveQueueItem: async (id, direction) => {
+    const room = get().room;
+    if (!room) return;
+    const order = queueOrder(room.queue);
+    const next = moveOrder(order, id, direction);
+    if (!next) return;
+    // Hiển thị ngay, rồi xác nhận bằng snapshot (trả lại thứ tự cũ nếu version lệch).
+    set({ room: { ...room, queue: applyOrder(room.queue, next) } });
+    try {
+      const snapshot = await apiReorderQueue(room.code, next, room.queueVersion);
+      get().applySnapshot(snapshot, true);
+    } catch (error) {
+      const code = isApiError(error) ? error.code : "NETWORK_ERROR";
+      if (code === "QUEUE_STALE") get().pushToast(t("queue.stale"), "warn");
+      else {
+        get().pushToast(
+          isApiError(error) ? error.message : t("toast.networkError"),
+          "danger",
+        );
+      }
+      await get().refresh();
+    }
+  },
+
+  playNextInQueue: async () => {
+    const room = get().room;
+    if (!room) return;
+    try {
+      const snapshot = await apiPlayNext(room.code);
+      get().applySnapshot(snapshot, true);
+      get().pushToast(t("toast.playingNext"), "info");
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
   },
 
   playUrl: async (url, isLive = false) => {
@@ -736,14 +1073,17 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
 
   playQueueItem: async (id) => {
     const { room } = get();
-    const item = room?.queue.find((entry) => entry.id === id);
-    if (!item) return;
-    const loaded = await get().loadVideo(item.videoId, {
-      isLive: item.isLive,
-      title: item.title,
-      durationSec: item.durationSec,
-    });
-    if (loaded) get().dequeue(id);
+    if (!room?.queue.some((entry) => entry.id === id)) return;
+    try {
+      const snapshot = await apiPlayQueueItem(room.code, id);
+      get().applySnapshot(snapshot, true);
+      get().pushToast(t("toast.playingNext"), "info");
+    } catch (error) {
+      get().pushToast(
+        isApiError(error) ? error.message : t("toast.networkError"),
+        "danger",
+      );
+    }
   },
 
   setUiStatus: (ui) => {

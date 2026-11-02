@@ -3,7 +3,11 @@
 import { io, type Socket } from "socket.io-client";
 import type { PingSample } from "../clock-sync";
 import { API_ORIGIN } from "./client";
-import type { ApiNowPlaying, ApiRoomSnapshot } from "./types";
+import type {
+  ApiChatMessage,
+  ApiNowPlaying,
+  ApiRoomSnapshot,
+} from "./types";
 
 let socket: Socket | null = null;
 
@@ -20,9 +24,23 @@ function getSocket(): Socket {
 
 export interface VideoStateEvent {
   code: string;
-  reason: "load" | "play" | "pause" | "seek" | "ended" | "error";
+  /** `skip`: backend tự chuyển video khi lượt bỏ phiếu đạt ngưỡng. */
+  reason: "load" | "play" | "pause" | "seek" | "ended" | "error" | "skip";
   nowPlaying: ApiNowPlaying | null;
   serverTime: number;
+}
+
+export interface ChatMessageEvent extends ApiChatMessage {
+  code: string;
+}
+
+export interface RoomNoticeEvent {
+  id: string;
+  code: string;
+  type: string;
+  at: number;
+  actorMemberId: string | null;
+  data: Record<string, unknown>;
 }
 
 /** Kết nối socket (nếu chưa) và chờ tối đa `timeoutMs`. */
@@ -125,4 +143,34 @@ export function subscribeVideoState(
   active.on("video:state", handler);
   if (!active.connected) active.connect();
   return () => active.off("video:state", handler);
+}
+
+/** Nhận `chat:message` của đúng phòng (append-only, dedupe ở store theo `id`). */
+export function subscribeChatMessages(
+  code: string,
+  onMessage: (event: ChatMessageEvent) => void,
+): () => void {
+  const active = getSocket();
+  const joined = code.toUpperCase();
+  const handler = (event: ChatMessageEvent) => {
+    if (event.code?.toUpperCase() === joined) onMessage(event);
+  };
+  active.on("chat:message", handler);
+  if (!active.connected) active.connect();
+  return () => active.off("chat:message", handler);
+}
+
+/** Nhận `room:notice` của đúng phòng; client tự dedupe theo `id`. */
+export function subscribeNotices(
+  code: string,
+  onNotice: (event: RoomNoticeEvent) => void,
+): () => void {
+  const active = getSocket();
+  const joined = code.toUpperCase();
+  const handler = (event: RoomNoticeEvent) => {
+    if (event.code?.toUpperCase() === joined) onNotice(event);
+  };
+  active.on("room:notice", handler);
+  if (!active.connected) active.connect();
+  return () => active.off("room:notice", handler);
 }

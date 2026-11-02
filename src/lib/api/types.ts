@@ -21,6 +21,7 @@ export interface ApiMember {
   seatId?: string;
   frameTier: 0 | 1 | 2;
   micOn?: boolean;
+  role?: "host" | "cohost" | "viewer";
 }
 
 export interface ApiNowPlaying {
@@ -50,6 +51,44 @@ export interface LoadVideoPayload {
   durationSec?: number;
 }
 
+export interface ApiQueueItem {
+  id: string;
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  durationSec: number;
+  isLive: boolean;
+  addedById: string;
+  addedBy: string;
+  createdAt: number;
+  position: number;
+}
+
+export interface ApiSkipVote {
+  videoId: string;
+  yes: number;
+  total: number;
+  threshold: number;
+  passed: boolean;
+  version: number;
+  voted: boolean;
+}
+
+export interface ApiChatMessage {
+  id: string;
+  memberId: string;
+  displayName: string;
+  kind: "text" | "emoji" | "system";
+  body: string;
+  clientMessageId?: string | null;
+  createdAt: number;
+}
+
+export interface ApiMessagePage {
+  messages: ApiChatMessage[];
+  nextBefore?: string | null;
+}
+
 export interface ApiRoomSnapshot {
   code: string;
   title: string;
@@ -58,6 +97,9 @@ export interface ApiRoomSnapshot {
   viewerId: string;
   nowPlaying: ApiNowPlaying | null;
   members: ApiMember[];
+  queue?: ApiQueueItem[];
+  queueVersion?: number;
+  skipVote?: ApiSkipVote | null;
   serverTime: number;
 }
 

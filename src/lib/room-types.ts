@@ -10,6 +10,8 @@ export type PlaybackState =
 
 export type PlaybackErrorCode = "embed-disabled" | "removed" | "unavailable";
 
+export type MemberRole = "host" | "cohost" | "viewer";
+
 export interface Seat {
   id: string;
   row: number;
@@ -30,6 +32,8 @@ export interface Member {
   frameTier: 0 | 1 | 2;
   /** `false` khi người xem đã tắt mic; mặc định coi như đang mở. */
   micOn?: boolean;
+  /** Quyền tương tác thật (Phase 4); `isHost` vẫn là nguồn sự thật cho HOST. */
+  role: MemberRole;
 }
 
 export interface NowPlaying {
@@ -62,6 +66,9 @@ export interface ChatMessage {
   kind: "text" | "emoji" | "system";
   body: string;
   createdAt: number;
+  /** Khoá idempotency do client sinh; giữ nguyên khi bấm "Gửi lại". */
+  clientMessageId?: string;
+  status?: "sending" | "sent" | "failed";
 }
 
 export interface QueueItem {
@@ -71,13 +78,21 @@ export interface QueueItem {
   channelTitle: string;
   durationSec: number;
   addedBy: string;
+  addedById: string;
   isLive: boolean;
+  createdAt: number;
+  position: number;
 }
 
 export interface SkipVote {
   videoId: string;
   yes: number;
+  /** Số thành viên đủ điều kiện bỏ phiếu (mẫu số của tỷ lệ). */
   total: number;
+  /** Số phiếu cần để thông qua: quá bán. */
+  threshold: number;
+  passed: boolean;
+  version: number;
   voted: boolean;
 }
 
@@ -125,7 +140,14 @@ export interface RoomState {
   seats: Seat[];
   members: Member[];
   queue: QueueItem[];
+  /** Tăng mỗi lần hàng chờ đổi; dùng để từ chối lệnh sắp xếp cũ. */
+  queueVersion: number;
   messages: ChatMessage[];
+  /** Còn trang lịch sử cũ hơn để tải. */
+  chatHasMore: boolean;
+  /** Cursor mờ của trang lịch sử kế tiếp (do server trả về). */
+  chatCursor: string | null;
+  chatLoading: boolean;
   skipVote: SkipVote | null;
   ui: UiStatus;
   serverOffsetMs: number;
