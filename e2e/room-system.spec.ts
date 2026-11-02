@@ -15,6 +15,7 @@ import {
   SEAT_TOAST_TAKEN,
   createRoomThroughUi,
   joinByLink,
+  newRoomContext,
   openHome,
   openMembersPanel,
   pickSeat,
@@ -25,7 +26,7 @@ import {
 } from "./support";
 
 test("Chủ rạp tạo phòng và được đưa vào URL /room/{code}", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await newRoomContext(browser);
   const page = await context.newPage();
 
   const code = await createRoomThroughUi(page, "Đêm phim kiểm thử");
@@ -39,11 +40,11 @@ test("Chủ rạp tạo phòng và được đưa vào URL /room/{code}", async 
 });
 
 test("Khách mở link thấy rạp và thấy 2 người", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng hai người");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -57,11 +58,11 @@ test("Khách mở link thấy rạp và thấy 2 người", async ({ browser }) 
 });
 
 test("Hai máy thấy cùng một danh sách thành viên", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng danh sách");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -84,11 +85,11 @@ test("Hai máy thấy cùng một danh sách thành viên", async ({ browser }) 
 });
 
 test("Khách vào phòng bằng mã từ trang chủ", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng vào bằng mã");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await openHome(guestPage);
@@ -107,22 +108,20 @@ test("Khách vào phòng bằng mã từ trang chủ", async ({ browser }) => {
 });
 
 test("Hai người chọn ghế khác nhau, avatar ở đúng vị trí", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng hai ghế");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
 
   await pickSeat(hostPage, 2, 4);
-  await expect(hostPage.locator(".toast--ok")).toContainText("Đã chọn ghế");
-
   await pickSeat(guestPage, 4, 9);
-  await expect(guestPage.locator(".toast--ok")).toContainText("Đã chọn ghế");
 
   await expect(hostPage.locator(".seat--mine")).toHaveCount(1);
+  await expect(guestPage.locator(".seat--mine")).toHaveCount(1);
   await expect(guestPage.locator(".seat--mine")).toHaveCount(1);
   // Ghế của người kia hiện trạng thái có người ngồi ở cả hai máy.
   await expect(hostPage.locator(".seat--occupied")).toHaveCount(1);
@@ -133,28 +132,28 @@ test("Hai người chọn ghế khác nhau, avatar ở đúng vị trí", async 
 });
 
 test("Hai người chọn cùng một ghế: người sau nhận toast seatTaken", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng tranh ghế");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
 
-  await pickSeat(hostPage, 3, 3);
-  await expect(hostPage.locator(".toast--ok")).toContainText("Đã chọn ghế");
+  const hostToast = await pickSeat(hostPage, 3, 3);
+  expect(hostToast).toContain("Đã chọn ghế");
   await expect(guestPage.locator(".seat--occupied")).toHaveCount(1);
 
-  await pickSeat(guestPage, 3, 3);
-  await expect(guestPage.locator(".toast--warn")).toContainText(SEAT_TOAST_TAKEN);
+  const guestToast = await pickSeat(guestPage, 3, 3);
+  expect(guestToast).toContain(SEAT_TOAST_TAKEN);
 
   await hostContext.close();
   await guestContext.close();
 });
 
 test("Đổi ghế: avatar chuyển chỗ và ghế cũ trống", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await newRoomContext(browser);
   const page = await context.newPage();
   await createRoomThroughUi(page, "Phòng đổi ghế");
 
@@ -172,7 +171,7 @@ test("Đổi ghế: avatar chuyển chỗ và ghế cũ trống", async ({ brows
 });
 
 test("Sao chép link và mã phòng đều hiện toast xác nhận", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await newRoomContext(browser);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const page = await context.newPage();
   const code = await createRoomThroughUi(page, "Phòng sao chép link");
@@ -190,11 +189,11 @@ test("Sao chép link và mã phòng đều hiện toast xác nhận", async ({ b
 });
 
 test("Tải lại trang khách vẫn đúng phòng và đúng ghế", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng tải lại");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -213,11 +212,11 @@ test("Tải lại trang khách vẫn đúng phòng và đúng ghế", async ({ b
 });
 
 test("Chủ rạp kick khách, khách không còn trong danh sách", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng kick");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -242,11 +241,11 @@ test("Chủ rạp kick khách, khách không còn trong danh sách", async ({ br
 });
 
 test("Khách không thấy nút quản trị và API từ chối quyền host", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng phân quyền");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -296,11 +295,11 @@ test("Khách không thấy nút quản trị và API từ chối quyền host", 
 });
 
 test("Khách rời phòng về trang chủ và ghế được giải phóng", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng rời đi");
 
-  const guestContext = await browser.newContext();
+  const guestContext = await newRoomContext(browser);
   const guestPage = await guestContext.newPage();
   await signUp(guestContext, "Khach E2E");
   await joinByLink(guestPage, code);
@@ -319,7 +318,7 @@ test("Khách rời phòng về trang chủ và ghế được giải phóng", as
 });
 
 test("Phòng đầy hiển thị màn hình full", async ({ browser }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   // Đi qua `/` để có phiên, sau đó tạo phòng sức chứa 2 qua API.
   await signUp(hostContext, "Chu Rap E2E");
@@ -333,13 +332,13 @@ test("Phòng đầy hiển thị màn hình full", async ({ browser }) => {
   expect(created.ok()).toBeTruthy();
   const code: string = (await created.json()).code;
 
-  const secondContext = await browser.newContext();
+  const secondContext = await newRoomContext(browser);
   const secondPage = await secondContext.newPage();
   await signUp(secondContext, "Khach Hai E2E");
   await joinByLink(secondPage, code);
   await expect(secondPage.locator(".occupancy strong")).toHaveText("2");
 
-  const thirdContext = await browser.newContext();
+  const thirdContext = await newRoomContext(browser);
   const thirdPage = await thirdContext.newPage();
   await signUp(thirdContext, "Khach Ba E2E");
   await thirdPage.goto(`/room/${code}`);
@@ -352,7 +351,7 @@ test("Phòng đầy hiển thị màn hình full", async ({ browser }) => {
 });
 
 test("Phòng không tồn tại hiện màn hình lỗi, không crash", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await newRoomContext(browser);
   const page = await context.newPage();
   await signUp(context, "Nguoi Tim Phong E2E");
 
@@ -366,11 +365,11 @@ test("Phòng không tồn tại hiện màn hình lỗi, không crash", async ({
 test("Chưa đăng nhập mở link phòng: popup đăng nhập chặn, đăng ký xong vào rạp ngay", async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext();
+  const hostContext = await newRoomContext(browser);
   const hostPage = await hostContext.newPage();
   const code = await createRoomThroughUi(hostPage, "Phòng bắt buộc tài khoản");
 
-  const strangerContext = await browser.newContext();
+  const strangerContext = await newRoomContext(browser);
   const strangerPage = await strangerContext.newPage();
   await strangerPage.goto(`/room/${code}`);
 

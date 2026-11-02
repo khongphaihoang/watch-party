@@ -1,4 +1,6 @@
-﻿import { expect, type BrowserContext, type Page } from "@playwright/test";
+﻿import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+
+import { installFakeYouTube } from "./fake-youtube";
 
 /**
  * Helper dùng chung cho các bộ E2E. Mỗi context trình duyệt là một người thật:
@@ -11,6 +13,16 @@ export const VIDEO_ID = "M7lc1UVf-VE";
 export const PASSWORD = "matkhau123";
 
 let accountSeq = 0;
+
+/**
+ * Context mới đã cài YouTube giả. Test không phụ thuộc mạng ngoài và không bị
+ * timeout vì iframe thật tải chậm.
+ */
+export async function newRoomContext(browser: Browser): Promise<BrowserContext> {
+  const context = await browser.newContext();
+  await installFakeYouTube(context);
+  return context;
+}
 
 export function uniqueUsername(prefix = "e2e"): string {
   accountSeq += 1;
@@ -43,16 +55,36 @@ export function seatButton(page: Page, row: number, col: number) {
  * Chọn ghế qua bảng chọn ghế (lưới 2D). Ghế trong rạp 3D bị các lớp con và các
  * hàng phía trước che theo phối cảnh nên toạ độ bấm không ổn định trong test;
  * cả hai đường vào đều gọi chung một action `takeSeat(row, col)`.
+ *
+ * Toast chỉ sống vài giây nên được đọc **ngay sau khi bấm** (trước khi đóng panel),
+ * tránh trường hợp máy chậm làm toast biến mất trước khi test assert.
  */
-export async function pickSeat(page: Page, row: number, col: number) {
+export async function pickSeat(page: Page, row: number, col: number): Promise<string> {
   const panel = page.locator(".sheet.panel");
   if (!(await panel.isVisible())) {
     await page.getByRole("button", { name: "Chọn ghế" }).first().click();
     await expect(panel).toBeVisible();
   }
+  const before = await page.locator(".toast").allInnerTexts();
   await page.locator(`.seat-map__btn[title="Hàng ${row} số ${col}"]`).click();
+
+  // Chờ toast **mới** (khác các toast đang có) thay vì đọc toast cũ còn sót.
+  let toastText = "";
+  await expect
+    .poll(
+      async () => {
+        const current = await page.locator(".toast").allInnerTexts();
+        const fresh = current.filter((text) => !before.includes(text)).map((t) => t.trim());
+        toastText = fresh[fresh.length - 1] ?? "";
+        return toastText;
+      },
+      { timeout: 15000 },
+    )
+    .not.toBe("");
+
   await page.locator(".sheet.panel .sheet__head button").click();
   await expect(panel).toBeHidden();
+  return toastText;
 }
 
 /** Mở panel thành viên và trả về chính panel đó để assert nội dung. */
